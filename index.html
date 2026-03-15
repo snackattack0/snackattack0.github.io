@@ -46,13 +46,37 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-pill); }
 
-        body { font-family: 'Outfit', sans-serif; background-color: var(--bg-base); background-image: radial-gradient(circle at 50% 0%, rgba(255, 119, 0, 0.08) 0%, transparent 60%); color: var(--text-main); margin: 0; padding: 0; display: flex; height: 100dvh; overflow: hidden; font-size: 15px; }
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: var(--bg-base); 
+            background-image: radial-gradient(circle at 50% 0%, rgba(255, 119, 0, 0.08) 0%, transparent 60%); 
+            color: var(--text-main); 
+            margin: 0; padding: 0; 
+            display: flex; height: 100dvh; 
+            overflow: hidden; font-size: 15px; 
+        }
+
         h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.5px; }
         button { font-family: 'Outfit', sans-serif; outline: none; }
         input { font-family: 'Outfit', sans-serif; }
 
-        /* --- Layout --- */
-        .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; padding-bottom: 90px; }
+        /* --- Layout & Fixes --- */
+        .main-panel { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            position: relative; 
+            height: 100dvh; 
+        }
+
+        .items-scroll { 
+            flex: 1; 
+            padding: 10px 20px 140px; /* Safe padding for Bottom bar */
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; 
+        }
+
         .header { padding: 24px 20px 16px; display: flex; justify-content: space-between; align-items: center; }
         .brand { display: flex; align-items: center; gap: 12px; font-size: 1.6em; font-weight: 800; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
         .brand-icon { background: var(--primary-gradient); color: #fff; padding: 8px; border-radius: var(--radius-md); display: flex; box-shadow: 0 4px 15px var(--primary-glow); -webkit-text-fill-color: #fff; }
@@ -68,28 +92,24 @@
         .chip { background: var(--bg-surface-solid); color: var(--text-muted); border: 1px solid var(--border); padding: 10px 20px; border-radius: var(--radius-pill); cursor: pointer; font-weight: 500; transition: var(--transition-smooth); user-select: none; }
         .chip.active { background: var(--primary-gradient); color: #fff; border-color: transparent; box-shadow: 0 4px 15px var(--primary-glow); font-weight: 600; }
 
-        .items-scroll { flex: 1; padding: 10px 20px 20px; overflow-y: auto; }
         .category-section { margin-bottom: 32px; animation: staggerFade 0.4s ease-out backwards; }
+        .category-section:last-child { margin-bottom: 60px; }
         .category-section-title { font-size: 1.25em; margin-bottom: 16px; color: var(--primary); display: flex; align-items: center; gap: 12px; }
         .category-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
 
-        /* Modified Item Card for Swiggy/Zomato Style Add Buttons */
-        .item-card { background: var(--bg-surface); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; min-height: 120px; transition: var(--transition-bounce); position: relative; overflow: hidden; }
+        /* --- Swiggy Style Card --- */
+        .item-card { background: var(--bg-surface); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; min-height: 130px; transition: var(--transition-bounce); position: relative; overflow: hidden; }
         @keyframes staggerFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @media (hover: hover) { .item-card:hover { border-color: rgba(255, 119, 0, 0.4); transform: translateY(-4px); background: var(--bg-surface-hover); box-shadow: 0 8px 24px rgba(0,0,0,0.4); } }
         .item-name { font-weight: 600; font-size: 1.1em; line-height: 1.3; margin-bottom: 8px; }
         .item-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
         .item-price { color: var(--text-muted); font-weight: 500; font-size: 1em; }
         .item-price span { color: var(--text-main); font-weight: 700; font-size: 1.2em; }
         
-        /* Inline Menu Quantity Controls */
         .item-add-btn { background: rgba(255, 119, 0, 0.1); border: 1px solid var(--primary); border-radius: var(--radius-sm); padding: 6px 14px; display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: 700; cursor: pointer; transition: var(--transition-smooth); font-size: 0.9em; }
         .item-add-btn:active { transform: scale(0.95); }
-        @media (hover: hover) { .item-card:hover .item-add-btn { background: var(--primary-gradient); color: #fff; } }
         .item-qty-controls { display: flex; align-items: center; gap: 8px; background: var(--primary-gradient); border-radius: var(--radius-sm); padding: 4px; color: #fff; box-shadow: 0 4px 15px var(--primary-glow); }
         .item-qty-btn { background: rgba(0,0,0,0.2); border: none; color: #fff; cursor: pointer; width: 26px; height: 26px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-        .item-qty-btn:active { background: rgba(0,0,0,0.4); transform: scale(0.9); }
         .item-qty-val { font-weight: 700; width: 16px; text-align: center; font-size: 0.95em; }
 
         .icon-btn { background: var(--bg-surface-solid); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; padding: 10px; border-radius: var(--radius-pill); transition: 0.2s; display: flex; }
@@ -98,16 +118,17 @@
         .fab-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px); width: calc(100% - 40px); max-width: 400px; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 50; }
         .fab-container.show { transform: translateX(-50%) translateY(0); }
         .fab-btn { width: 100%; background: var(--primary-gradient); color: #fff; border: none; padding: 18px 24px; border-radius: var(--radius-pill); display: flex; justify-content: space-between; align-items: center; font-size: 1.15em; font-weight: 700; cursor: pointer; box-shadow: 0 10px 30px var(--primary-glow); }
-        .fab-count { background: #fff; color: var(--primary); padding: 2px 10px; border-radius: var(--radius-pill); font-size: 0.9em; font-weight: 800; animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .fab-count { background: #fff; color: var(--primary); padding: 2px 10px; border-radius: var(--radius-pill); font-size: 0.9em; font-weight: 800; animation: pop 0.3s; }
         @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
 
-        /* --- Slide Panels --- */
-        .backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+        /* --- Panels --- */
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
         .backdrop.open { opacity: 1; pointer-events: auto; }
         .slide-panel { position: fixed; top: 0; right: -100%; bottom: 0; width: 100%; background-color: var(--bg-surface-solid); display: flex; flex-direction: column; z-index: 100; box-shadow: -10px 0 40px rgba(0,0,0,0.5); transition: right 0.5s cubic-bezier(0.2, 0, 0, 1); border-left: 1px solid var(--border); }
         .slide-panel.open { right: 0; }
         .cart-panel { max-width: 420px; }
         .admin-panel { width: 100vw; max-width: 100vw; right: -100vw; }
+        
         .panel-header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
         .panel-title { display: flex; align-items: center; gap: 10px; font-size: 1.3em; font-weight: 700; }
         .close-btn { background: var(--bg-base); border: 1px solid var(--border); color: var(--text-main); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
@@ -122,13 +143,12 @@
         @keyframes slideInLeft { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
         
         /* CRM Section */
-        .crm-box { background: var(--bg-base); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px; }
-        .input-modern { width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-main); padding: 12px 16px; border-radius: var(--radius-md); font-family: 'Outfit'; outline: none; transition: 0.2s; margin-top: 8px; box-sizing: border-box; }
-        .input-modern:focus { border-color: var(--primary); }
+        .crm-box { background: var(--bg-base); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin: 0 24px 16px; }
+        .input-modern { width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-main); padding: 12px 16px; border-radius: var(--radius-md); font-family: 'Outfit'; outline: none; transition: 0.2s; margin-top: 8px; }
         .loyalty-alert { background: rgba(250, 204, 21, 0.15); border: 1px solid rgba(250, 204, 21, 0.4); color: #facc15; padding: 10px; border-radius: var(--radius-sm); margin-top: 10px; font-weight: 700; display: none; text-align: center; }
 
         /* Discounts */
-        .discount-row { display: flex; gap: 10px; margin-bottom: 16px; }
+        .discount-row { display: flex; gap: 10px; margin: 0 24px 16px; }
         .discount-btn { flex: 1; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-main); padding: 10px; border-radius: var(--radius-pill); font-weight: 600; cursor: pointer; transition: 0.2s; }
         .discount-btn.active { background: rgba(14, 165, 233, 0.2); border-color: #0ea5e9; color: #0ea5e9; }
 
@@ -136,26 +156,26 @@
         .summary-total { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); font-size: 1.5em; font-weight: 800; color: var(--text-main); }
         .checkout-btn { width: 100%; padding: 20px; margin-top: 24px; background: var(--primary-gradient); color: #fff; border: none; border-radius: var(--radius-pill); font-size: 1.25em; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px var(--primary-glow); }
 
-        /* --- Payment Overlay & Multi-Tender --- */
+        /* --- Payment Modal --- */
         .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background: var(--bg-surface-solid); padding: 24px; border-radius: var(--radius-lg); z-index: 110; box-shadow: 0 20px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; width: 90%; max-width: 380px; opacity: 0; pointer-events: none; transition: var(--transition-bounce); border: 1px solid var(--border); text-align: center; }
         .payment-modal.open { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
-        
         .tender-tabs { display: flex; background: var(--bg-base); border-radius: var(--radius-pill); padding: 4px; width: 100%; margin: 16px 0; border: 1px solid var(--border); }
         .tender-tab { flex: 1; padding: 10px; text-align: center; border-radius: var(--radius-pill); cursor: pointer; font-weight: 600; color: var(--text-muted); transition: 0.2s; }
         .tender-tab.active { background: var(--bg-surface-hover); color: var(--text-main); box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
 
-        .qr-box { background: #fff; padding: 16px; border-radius: var(--radius-md); margin: 10px 0; box-shadow: 0 10px 30px rgba(255, 119, 0, 0.1); width: 200px; height: 200px; display: flex; justify-content: center; align-items: center;}
+        .qr-box { background: #fff; padding: 16px; border-radius: 12px; margin: 15px 0; width: 200px; height: 200px; display: flex; align-items: center; justify-content: center;}
         .qr-box img { width: 100%; height: 100%; }
 
-        /* --- Admin Dashboard --- */
+        /* --- Admin UI --- */
         .admin-content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
         .admin-tabs { display: flex; border-bottom: 1px solid var(--border); gap: 20px; margin-bottom: 10px; }
         .admin-tab { padding: 10px 0; color: var(--text-muted); cursor: pointer; font-weight: 600; position: relative; }
         .admin-tab.active { color: var(--primary); }
         .admin-tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--primary); }
         
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .stat-card { background: var(--bg-surface); border: 1px solid var(--border); padding: 20px; border-radius: var(--radius-md); text-align: center; }
+        .stat-val { font-size: 2em; font-weight: 800; color: var(--primary); margin-top: 8px; }
         .chart-container { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; height: 300px; }
 
         .switch { position: relative; display: inline-block; width: 48px; height: 26px; }
@@ -165,14 +185,13 @@
         input:checked + .slider { background: var(--primary-gradient); border-color: transparent; }
         input:checked + .slider:before { transform: translateX(22px); background-color: #fff; }
 
+        .offline-banner { background: #ef4444; color: white; text-align: center; padding: 8px; font-weight: 600; display: none; }
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #fff; color: #000; padding: 14px 28px; border-radius: var(--radius-pill); font-weight: 700; box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; transition: transform 0.5s; z-index: 2000; }
         .toast.show { transform: translateX(-50%) translateY(0); }
-        
+
         .auto-verify-msg { background: rgba(14, 165, 233, 0.1); color: #0ea5e9; padding: 12px 20px; border-radius: var(--radius-pill); font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; border: 1px solid rgba(14, 165, 233, 0.3); }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .spinner { animation: spin 1s linear infinite; }
-        
-        .offline-banner { background: #ef4444; color: white; text-align: center; padding: 8px; font-weight: 600; display: none; }
     </style>
 </head>
 <body>
@@ -214,32 +233,27 @@
             <button class="close-btn" onclick="closeAllPanels()"><span class="material-symbols-rounded">close</span></button>
         </div>
         
-        <div class="cart-items" id="cartItems">
-            <!-- Items & Upsells injected here -->
+        <div class="cart-items" id="cartItems"></div>
+
+        <div class="crm-box">
+            <div style="font-weight: 600; font-size: 0.9em; color: var(--text-muted); margin-bottom: 5px;">Customer Details</div>
+            <input type="tel" id="custPhone" class="input-modern" placeholder="Phone Number" maxlength="10" onblur="lookupCustomer()">
+            <input type="text" id="custName" class="input-modern" placeholder="Name (Optional)">
+            <div id="loyaltyBadge" class="loyalty-alert">🎁 5th Visit! Give a free Mojito!</div>
+        </div>
+
+        <div class="discount-row">
+            <button class="discount-btn" id="btnDisc10" onclick="applyDiscount('percent', 10)">10% Staff</button>
+            <button class="discount-btn" id="btnDiscCustom" onclick="showCustomDiscount()">Custom ₹</button>
+            <input type="number" id="customDiscInput" class="input-modern" style="display:none; flex:1; margin-top:0;" placeholder="Amount" oninput="applyCustomDiscount()">
+            <button class="discount-btn" onclick="clearDiscount()">Clear</button>
         </div>
 
         <div class="cart-footer" style="padding-top: 0;">
-            <!-- CRM / Loyalty -->
-            <div class="crm-box">
-                <div style="font-weight: 600; font-size: 0.9em; color: var(--text-muted); margin-bottom: 5px;">Customer Details</div>
-                <input type="tel" id="custPhone" class="input-modern" placeholder="Phone Number" maxlength="10" onblur="lookupCustomer()">
-                <input type="text" id="custName" class="input-modern" placeholder="Name (Optional)">
-                <div id="loyaltyBadge" class="loyalty-alert">🎁 5th Visit! Give a free Mojito!</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <span style="font-weight: 500;">Parcel Charge (₹5)</span>
+                <label class="switch"><input type="checkbox" id="parcelToggle" onchange="updateTotals()"><span class="slider"></span></label>
             </div>
-
-            <!-- Discounts -->
-            <div class="discount-row">
-                <button class="discount-btn" id="btnDisc10" onclick="applyDiscount('percent', 10)">10% Staff</button>
-                <button class="discount-btn" id="btnDiscCustom" onclick="showCustomDiscount()">Custom ₹</button>
-                <input type="number" id="customDiscInput" class="input-modern" style="display:none; flex:1; margin-top:0; padding: 8px 12px; text-align:center;" placeholder="Amount" oninput="applyCustomDiscount()">
-                <button class="discount-btn" onclick="clearDiscount()">Clear</button>
-            </div>
-
-            <label class="switch" style="float: right;">
-                <input type="checkbox" id="parcelToggle" onchange="updateTotals()">
-                <span class="slider"></span>
-            </label>
-            <div style="margin-bottom: 16px; font-weight: 500;">Parcel Charge (₹5)</div>
             
             <div style="display: flex; justify-content: space-between; color: var(--text-muted); font-weight: 500; margin-bottom: 8px;">
                 <span>Subtotal</span><span id="subtotalLabel">₹0</span>
@@ -266,857 +280,418 @@
                 <div class="admin-tab" id="tabForecast" onclick="switchAdminTab('forecast')">AI Demand Forecast</div>
             </div>
 
-            <!-- Overview Section -->
             <div id="sectOverview">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
-                    <input type="date" id="adminDatePicker" class="input-modern" style="width:auto; padding: 8px 12px;" onchange="loadAdminData()">
-                </div>
+                <input type="date" id="adminDatePicker" class="input-modern" style="width:auto; margin-bottom: 16px;" onchange="loadAdminData()">
                 <div class="stats-grid">
-                    <div class="stat-card"><div>Revenue (Selected Day)</div><div class="stat-val" id="adminRev">₹0</div></div>
-                    <div class="stat-card"><div>Orders (Selected Day)</div><div class="stat-val" id="adminOrders">0</div></div>
+                    <div class="stat-card"><div>Revenue</div><div class="stat-val" id="adminRev">₹0</div></div>
+                    <div class="stat-card"><div>Orders</div><div class="stat-val" id="adminOrders">0</div></div>
                 </div>
-                
-                <h3 style="margin-top: 20px; margin-bottom: 10px; color:var(--text-main);">Order History</h3>
-                <div id="adminOrderList" style="display:flex; flex-direction:column; gap: 10px; max-height: 250px; overflow-y:auto; padding-right: 5px;"></div>
+                <h3 style="margin-top: 25px; margin-bottom: 12px; color:var(--text-main);">Order History</h3>
+                <div id="adminOrderList" style="display:flex; flex-direction:column; gap: 10px; max-height: 300px; overflow-y:auto; padding-right: 5px;"></div>
 
-                <div class="chart-container" style="margin-top: 20px;"><canvas id="salesChart"></canvas></div>
-                <div class="chart-container"><canvas id="itemsChart"></canvas></div>
+                <div class="chart-container" style="margin-top: 25px;"><canvas id="salesChart"></canvas></div>
+                <div class="chart-container" style="margin-top: 15px;"><canvas id="itemsChart"></canvas></div>
             </div>
 
-            <!-- Forecasting Section -->
             <div id="sectForecast" style="display:none;">
-                <p style="color: var(--text-muted);">Predict future prep quantities based on historical data.</p>
-                <select id="forecastDay" class="input-modern" style="margin-bottom: 20px;" onchange="loadForecast()">
+                <p style="color: var(--text-muted); margin-bottom: 20px;">AI prediction for ingredient preparation quantities.</p>
+                <select id="forecastDay" class="input-modern" onchange="loadForecast()">
                     <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
                     <option value="4">Thursday</option><option value="5" selected>Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
                 </select>
-                <div class="chart-container"><canvas id="forecastChart"></canvas></div>
+                <div class="chart-container" style="margin-top: 20px;"><canvas id="forecastChart"></canvas></div>
             </div>
         </div>
     </aside>
 
-    <div class="payment-modal" id="authModal">
-        <div style="font-size: 1.4em; font-weight: 700; color: var(--text-main);">Admin Login</div>
-        <input type="password" id="adminPassInput" class="input-modern" style="margin: 20px 0; width: 100%; text-align: center;" placeholder="Enter Password (1234)">
-        <div style="display: flex; gap: 12px; width: 100%;">
-            <button class="close-btn" style="flex:1; border-radius: var(--radius-pill); width:auto;" onclick="closeAuth()">Cancel</button>
-            <button style="flex:1; background:var(--primary-gradient); border:none; color:#fff; border-radius:var(--radius-pill); font-weight:700; cursor:pointer;" onclick="verifyAdmin()">Unlock</button>
-        </div>
-    </div>
-    
-    <!-- VOID AUTH MODAL -->
-    <div class="payment-modal" id="voidAuthModal">
-        <div style="font-size: 1.4em; font-weight: 700; color: #ef4444;">Void Order</div>
-        <div style="color: var(--text-muted); margin-top: 5px;">Enter admin password to void <span id="voidOrderIdTxt" style="color:var(--text-main); font-weight:bold;"></span></div>
-        <input type="password" id="voidPassInput" class="input-modern" style="margin: 20px 0; width: 100%; text-align: center;" placeholder="Admin Password (1234)">
-        <div style="display: flex; gap: 12px; width: 100%;">
-            <button class="close-btn" style="flex:1; border-radius: var(--radius-pill); width:auto;" onclick="closeVoidAuth()">Cancel</button>
-            <button style="flex:1; background:rgba(239, 68, 68, 0.2); border:1px solid #ef4444; color:#ef4444; border-radius:var(--radius-pill); font-weight:700; cursor:pointer;" onclick="executeVoidOrder()">Confirm Void</button>
-        </div>
-    </div>
-
     <!-- PAYMENT MODAL -->
     <div class="payment-modal" id="paymentModal">
         <div style="font-size: 1.4em; font-weight: 700; color: var(--text-main);">Settle Payment</div>
-        
         <div class="tender-tabs">
             <div class="tender-tab active" id="tabUpi" onclick="setTender('upi')">UPI</div>
             <div class="tender-tab" id="tabCash" onclick="setTender('cash')">Cash</div>
             <div class="tender-tab" id="tabSplit" onclick="setTender('split')">Split</div>
         </div>
-
         <div id="splitUI" style="display: none; width: 100%; margin-bottom: 10px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-                <span>Cash Rcvd:</span>
-                <input type="number" id="splitCashInput" class="input-modern" style="width: 120px; padding: 8px; margin:0;" value="0" oninput="updateSplitMath()">
-            </div>
-            <div style="display:flex; justify-content:space-between; color: var(--primary); font-weight: 700;">
-                <span>Remaining UPI:</span><span id="splitUpiRemaining">₹0</span>
-            </div>
+            <input type="number" id="splitCashInput" class="input-modern" style="text-align:center;" placeholder="Cash Received" oninput="updateSplitMath()">
+            <div style="margin-top:10px; color: var(--primary); font-weight: 700;">Remaining UPI: <span id="splitUpiRemaining">₹0</span></div>
         </div>
-
         <div id="qrSection">
             <div style="font-size: 2em; font-weight: 800; color: var(--primary);" id="paymentAmount">₹0</div>
-            <div class="qr-box">
-                <img id="qrCodeImg" src="" alt="QR" style="display: none;">
-                <div id="qrLoading" style="color:#888;">Generating QR...</div>
-            </div>
-            <div class="auto-verify-msg" id="verifyStatus">
-                <span class="material-symbols-rounded spinner">sync</span> Awaiting payment webhook...
-            </div>
+            <div class="qr-box"><img id="qrCodeImg" src="" style="display: none;"><div id="qrLoading" style="color:#888;">Generating QR...</div></div>
+            <div class="auto-verify-msg" id="verifyStatus"><span class="material-symbols-rounded spinner">sync</span> Awaiting payment webhook...</div>
         </div>
-
         <div id="successSection" style="display: none; padding: 20px 0;">
             <span class="material-symbols-rounded" style="font-size: 64px; color: #10b981;">check_circle</span>
-            <div style="font-size: 1.5em; font-weight: 700; margin: 10px 0;">Payment Received</div>
-            <button id="waBtn" style="background:#25D366; color:#fff; border:none; padding:12px; border-radius:var(--radius-pill); font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:10px;" onclick="sendWhatsApp()">
-                <span class="material-symbols-rounded">chat</span> Send WhatsApp Receipt
-            </button>
+            <div style="font-size: 1.5em; font-weight: 700; margin: 10px 0;">Paid!</div>
+            <button id="waBtn" style="background:#25D366; color:#fff; border:none; padding:15px; border-radius:var(--radius-pill); font-weight:700; width:100%; margin-top:10px; cursor:pointer;" onclick="sendWhatsApp()">Send WhatsApp Receipt</button>
         </div>
-
-        <div id="paymentActions" style="display: flex; gap: 8px; width: 100%; margin-top: 10px; flex-wrap: wrap;">
-            <button class="close-btn" style="flex:1; border-radius: var(--radius-pill); width:auto; font-size: 0.9em; padding: 12px;" onclick="cancelPayment()">Cancel</button>
-            <button id="failMockBtn" style="flex:1; background:rgba(239, 68, 68, 0.2); border:1px solid #ef4444; color:#ef4444; border-radius:var(--radius-pill); font-weight:700; cursor:pointer; font-size: 0.9em; padding: 12px; transition: 0.2s;" onclick="failPayment('Customer cancelled')">Force Fail</button>
-            <button id="manualConfirmBtn" style="flex:1.5; background:var(--bg-surface-hover); border:none; color:#fff; border-radius:var(--radius-pill); font-weight:700; cursor:pointer; font-size: 0.9em; padding: 12px;" onclick="processPayment(true)">Force Success</button>
+        <div id="payActions" style="display: flex; gap: 8px; width: 100%; margin-top: 15px;">
+            <button class="close-btn" style="flex:1; border-radius: var(--radius-pill); width:auto;" onclick="cancelPayment()">Cancel</button>
+            <button style="flex:1.5; background:var(--primary-gradient); border:none; color:#fff; border-radius:var(--radius-pill); font-weight:700; cursor:pointer;" onclick="processPayment(true)">Force Success</button>
         </div>
     </div>
 
-    <div class="toast" id="toast"><span class="material-symbols-rounded" style="color: #0ea5e9;">task_alt</span><span id="toastMsg">Success</span></div>
+    <!-- AUTH MODALS -->
+    <div class="payment-modal" id="authModal">
+        <div style="font-size: 1.4em; font-weight: 700;">Admin Unlock</div>
+        <input type="password" id="adminPassInput" class="input-modern" style="margin: 20px 0; text-align: center;" placeholder="Password (1234)">
+        <button class="checkout-btn" style="margin:0;" onclick="verifyAdmin()">Open Dashboard</button>
+    </div>
+
+    <div class="payment-modal" id="voidAuthModal">
+        <div style="font-size: 1.4em; font-weight: 700; color: #ef4444;">Confirm Void</div>
+        <div style="margin: 10px 0; color:var(--text-muted);">Voiding order <span id="voidOrderIdTxt" style="font-weight:800; color:#fff;"></span></div>
+        <input type="password" id="voidPassInput" class="input-modern" style="margin-bottom: 20px; text-align: center;" placeholder="Admin Password">
+        <button class="checkout-btn" style="background:#ef4444; margin:0;" onclick="executeVoidOrder()">Void Order</button>
+    </div>
+
+    <div class="toast" id="toast"><span id="toastMsg"></span></div>
 
     <script>
-        const GOOGLE_WEB_APP_URL = "YOUR_GOOGLE_SCRIPT_URL_HERE"; 
-        const PAYTM_UPI_ID = "your_paytm_upi_id@paytm"; 
-        
-        // PWA Setup
-        const manifest = { name: "Snack Attack POS", display: "standalone", background_color: "#09090b", theme_color: "#ff7700" };
-        document.getElementById('manifest-link').href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
-        
-        function playSuccessSound() {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator(); const gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.frequency.setValueAtTime(880, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-                osc.start(); osc.stop(ctx.currentTime + 0.3);
-            } catch(e){}
-        }
+        // Placeholder replacements via GitHub Actions
+        const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
+        const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
 
         const defaultMenu = {
-            "Fried Options": [
-                { name: "Classic Fries", price: 49 }, 
-                { name: "Piri Piri Fries", price: 49 }, 
-                { name: "Cheesy Fries", price: 59 }, 
-                { name: "Veg Momos", price: 49 }, 
-                { name: "Chicken Momos", price: 59 }, 
-                { name: "Corn & Cheese Nuggets", price: 49 }
-            ],
-            "Sandwiches": [
-                { name: "Veg Sandwich", price: 35 }, 
-                { name: "Corn & Cheese", price: 40 }, 
-                { name: "Paneer Sandwich", price: 45 }, 
-                { name: "Chicken Sandwich", price: 45 }
-            ],
-            "Mojitos": [
-                { name: "Virjin Mojito", price: 49 }, 
-                { name: "Lime And Mint", price: 49 }, 
-                { name: "Blue Curacao", price: 49 }, 
-                { name: "Strawberry", price: 49 }
-            ],
-            "Salad Varities": [
-                { name: "Veg Salad", price: 29 }, 
-                { name: "Egg Salad", price: 35 }, 
-                { name: "Chicken Salad", price: 49 }, 
-                { name: "Sprouts Salad", price: 29 }
-            ],
-            "Steemed Options": [
-                { name: "Sprouts", price: 19 }, 
-                { name: "Peanuts", price: 19 }, 
-                { name: "Sweetcorn", price: 19 }, 
-                { name: "Channa", price: 25 }
-            ],
-            "Hot Beverages": [
-                { name: "Tea", price: 15 }, 
-                { name: "Coffee", price: 15 }, 
-                { name: "Hot Chocolate", price: 29 }
-            ]
+            "Fried Options": [{ name: "Classic Fries", price: 49 }, { name: "Piri Piri Fries", price: 49 }, { name: "Cheesy Fries", price: 59 }, { name: "Veg Momos", price: 49 }, { name: "Chicken Momos", price: 59 }, { name: "Corn & Cheese Nuggets", price: 49 }],
+            "Sandwiches": [{ name: "Veg Sandwich", price: 35 }, { name: "Corn & Cheese", price: 40 }, { name: "Paneer Sandwich", price: 45 }, { name: "Chicken Sandwich", price: 45 }],
+            "Mojitos": [{ name: "Virjin Mojito", price: 49 }, { name: "Lime And Mint", price: 49 }, { name: "Blue Curacao", price: 49 }, { name: "Strawberry", price: 49 }],
+            "Salad Varities": [{ name: "Veg Salad", price: 29 }, { name: "Egg Salad", price: 35 }, { name: "Chicken Salad", price: 49 }, { name: "Sprouts Salad", price: 29 }],
+            "Steemed Options": [{ name: "Sprouts", price: 19 }, { name: "Peanuts", price: 19 }, { name: "Sweetcorn", price: 19 }, { name: "Channa", price: 25 }],
+            "Hot Beverages": [{ name: "Tea", price: 15 }, { name: "Coffee", price: 15 }, { name: "Hot Chocolate", price: 29 }]
         };
 
-        const upsellRules = [
-            { trigger: "Chicken Sandwich", suggest: "Virjin Mojito", text: "🔥 70% bundle this. Add a Virjin Mojito (+₹49)", itemObj: {name: "Virjin Mojito", price: 49} },
-            { trigger: "Classic Fries", suggest: "Blue Curacao", text: "💡 Fries go great with a Blue Curacao (+₹49)", itemObj: {name: "Blue Curacao", price: 49} }
-        ];
+        const upsellRules = [{ trigger: "Chicken Sandwich", suggest: "Virjin Mojito", text: "🔥 Suggest: Virjin Mojito bundle (+₹49)" }];
 
-        let webhookInterval;
         let currentBill = [];
         let savedMenu = JSON.parse(localStorage.getItem('snackMenu_v8')) || defaultMenu;
         let activeCategory = "All";
         let activeDiscount = { type: 'none', val: 0 };
         let currentTender = 'upi';
-        let finalTotalToPay = 0;
         let currentVoidOrderId = null;
+        let customers = JSON.parse(localStorage.getItem('crm_db')) || {};
+        let salesChartObj, itemsChartObj, forecastChartObj;
+        let webhookInterval;
 
-        // CRM DB
-        let customers = JSON.parse(localStorage.getItem('crm_db')) || {}; 
-
-        async function initApp() { 
-            renderChips(); renderMenu(activeCategory); populateCategorySelect(); updateTotals(); 
+        async function initApp() {
+            renderChips(); renderMenu("All"); updateTotals();
             window.addEventListener('online', handleOnlineSync);
-            window.addEventListener('offline', () => document.getElementById('offlineBanner').style.display = 'block');
             if(!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
-            handleOnlineSync(); // Sync queue on boot
-
-            // Fetch live menu from cloud
             await fetchCloudMenu();
         }
 
         async function fetchCloudMenu() {
-            if (GOOGLE_WEB_APP_URL === "YOUR_GOOGLE_SCRIPT_URL_HERE") return;
+            if (GOOGLE_WEB_APP_URL.includes("__PLACEHOLDER__")) return;
             try {
-                const response = await fetch(GOOGLE_WEB_APP_URL);
-                const cloudMenu = await response.json();
-                
-                if (!cloudMenu.error && Object.keys(cloudMenu).length > 0) {
-                    savedMenu = cloudMenu;
+                const res = await fetch(GOOGLE_WEB_APP_URL);
+                const cloud = await res.json();
+                if(Object.keys(cloud).length > 0 && !cloud.error) {
+                    savedMenu = cloud;
                     localStorage.setItem('snackMenu_v8', JSON.stringify(savedMenu));
-                    populateCategorySelect();
-                    renderChips();
-                    renderMenu(activeCategory);
+                    renderChips(); renderMenu(activeCategory);
                 }
-            } catch (error) {
-                console.warn("Could not sync cloud menu, using local cache.");
-            }
+            } catch(e){}
         }
-
-        function populateCategorySelect() {
-            const select = document.getElementById('newItemCategory');
-            if(!select) return;
-            select.innerHTML = '';
-            Object.keys(savedMenu).forEach(cat => {
-                select.innerHTML += `<option value="${cat}">${cat}</option>`;
-            });
-        }
-
-        function toggleSearch() { document.getElementById('searchContainer').classList.add('expanded'); document.getElementById('searchInput').focus(); }
-        function closeSearchIfEmpty() { if (document.getElementById('searchInput').value.trim() === '') document.getElementById('searchContainer').classList.remove('expanded'); }
-        function handleSearch(val) { renderMenu('All', val); }
 
         function renderChips() {
             const container = document.getElementById('chipContainer');
             container.innerHTML = `<div class="chip ${activeCategory === 'All' ? 'active' : ''}" onclick="changeCat('All')">All Items</div>`;
-            Object.keys(savedMenu).forEach(cat => { 
-                container.innerHTML += `<div class="chip ${cat === activeCategory ? 'active' : ''}" onclick="changeCat('${cat}')">${cat}</div>`; 
+            Object.keys(savedMenu).forEach(cat => {
+                container.innerHTML += `<div class="chip ${cat === activeCategory ? 'active' : ''}" onclick="changeCat('${cat}')">${cat}</div>`;
             });
         }
 
-        function changeCat(cat) {
-            activeCategory = cat; 
-            document.getElementById('searchInput').value = ''; 
-            renderChips(); 
-            renderMenu(cat);
-        }
+        function changeCat(cat) { activeCategory = cat; renderChips(); renderMenu(cat); }
 
-        function getCartQty(itemName) {
-            const item = currentBill.find(i => i.name === itemName);
-            return item ? item.qty : 0;
-        }
+        function getCartQty(name) { return (currentBill.find(i => i.name === name) || {qty:0}).qty; }
 
-        function handleMenuAdd(btnElement, e) {
-            e.stopPropagation();
-            if(navigator.vibrate) navigator.vibrate(30);
-            const itemName = btnElement.closest('.action-container').getAttribute('data-item-name');
-            let itemObj = null;
-            for(let cat in savedMenu) {
-                let found = savedMenu[cat].find(i => i.name === itemName);
-                if(found) { itemObj = found; break; }
-            }
-            if(itemObj) addToBill(itemObj);
-        }
-
-        function handleMenuQty(btnElement, delta, e) {
-            e.stopPropagation();
-            if(navigator.vibrate) navigator.vibrate(30);
-            const itemName = btnElement.closest('.action-container').getAttribute('data-item-name');
-            const index = currentBill.findIndex(i => i.name === itemName);
-            if(index !== -1) {
-                changeQty(index, delta);
-            }
-        }
-
-        function syncMenuQuantities() {
-            document.querySelectorAll('.action-container').forEach(container => {
-                const itemName = container.getAttribute('data-item-name');
-                const qty = getCartQty(itemName);
-                
-                if (qty === 0) {
-                    container.innerHTML = `<div class="item-add-btn" onclick="handleMenuAdd(this, event)">ADD <span class="material-symbols-rounded" style="font-size:18px; margin-left:4px;">add</span></div>`;
-                } else {
-                    container.innerHTML = `
-                        <div class="item-qty-controls">
-                            <button class="item-qty-btn" onclick="handleMenuQty(this, -1, event)"><span class="material-symbols-rounded" style="font-size: 16px;">remove</span></button>
-                            <span class="item-qty-val">${qty}</span>
-                            <button class="item-qty-btn" onclick="handleMenuQty(this, 1, event)"><span class="material-symbols-rounded" style="font-size: 16px;">add</span></button>
-                        </div>
-                    `;
-                }
-            });
-        }
-
-        function createItemCard(item, delayIndex) {
+        function createItemCard(item) {
+            const qty = getCartQty(item.name);
             const card = document.createElement('div');
             card.className = 'item-card';
-            card.style.animationDelay = `${delayIndex * 0.03}s`;
-            
-            const qty = getCartQty(item.name);
-            const safeName = item.name.replace(/"/g, '&quot;');
-            
-            const actionHtml = qty === 0 
-                ? `<div class="item-add-btn" onclick="handleMenuAdd(this, event)">ADD <span class="material-symbols-rounded" style="font-size:18px; margin-left:4px;">add</span></div>`
-                : `<div class="item-qty-controls">
-                     <button class="item-qty-btn" onclick="handleMenuQty(this, -1, event)"><span class="material-symbols-rounded" style="font-size: 16px;">remove</span></button>
-                     <span class="item-qty-val">${qty}</span>
-                     <button class="item-qty-btn" onclick="handleMenuQty(this, 1, event)"><span class="material-symbols-rounded" style="font-size: 16px;">add</span></button>
-                   </div>`;
-
             card.innerHTML = `
                 <div class="item-name">${item.name}</div>
                 <div class="item-bottom">
-                    <span class="item-price">₹<span>${item.price}</span></span>
-                    <div class="action-container" data-item-name="${safeName}">${actionHtml}</div>
+                    <div class="item-price">₹<span>${item.price}</span></div>
+                    <div class="action-box">
+                        ${qty === 0 ? `<button class="item-add-btn" onclick="addToBill('${item.name}')">ADD <span class="material-symbols-rounded" style="font-size:16px; margin-left:4px;">add</span></button>` : 
+                        `<div class="item-qty-controls">
+                            <button class="item-qty-btn" onclick="updateQty('${item.name}', -1)">-</button>
+                            <span class="item-qty-val">${qty}</span>
+                            <button class="item-qty-btn" onclick="updateQty('${item.name}', 1)">+</button>
+                        </div>`}
+                    </div>
                 </div>
             `;
             return card;
         }
 
-        function renderMenu(category, query = '') {
-            const container = document.getElementById('menuContainer'); container.innerHTML = ''; let delay = 0;
-            if (category === 'All' || query) {
-                Object.keys(savedMenu).forEach(cat => {
-                    const filtered = savedMenu[cat].filter(i => i.name.toLowerCase().includes(query.toLowerCase()));
-                    if (filtered.length === 0) return;
-                    const sec = document.createElement('div'); sec.className = 'category-section'; sec.innerHTML = `<h3 class="category-section-title">${cat}</h3>`;
-                    const grid = document.createElement('div'); grid.className = 'grid';
-                    filtered.forEach(item => { grid.appendChild(createItemCard(item, delay++)); });
-                    sec.appendChild(grid); container.appendChild(sec);
-                });
-            } else {
-                if(!savedMenu[category]) return; const grid = document.createElement('div'); grid.className = 'grid';
-                savedMenu[category].forEach(item => { grid.appendChild(createItemCard(item, delay++)); });
-                container.appendChild(grid);
+        function renderMenu(cat, query = "") {
+            const container = document.getElementById('menuContainer');
+            container.innerHTML = "";
+            Object.keys(savedMenu).forEach(category => {
+                if(cat !== "All" && cat !== category) return;
+                const filtered = savedMenu[category].filter(i => i.name.toLowerCase().includes(query.toLowerCase()));
+                if(filtered.length === 0) return;
+                const sec = document.createElement('div');
+                sec.className = 'category-section';
+                sec.innerHTML = `<h3 class="category-section-title">${category}</h3><div class="grid"></div>`;
+                filtered.forEach(item => sec.querySelector('.grid').appendChild(createItemCard(item)));
+                container.appendChild(sec);
+            });
+        }
+
+        function addToBill(name) {
+            if(navigator.vibrate) navigator.vibrate(30);
+            let item;
+            for(let c in savedMenu) { 
+                let found = savedMenu[c].find(i => i.name === name); 
+                if(found) item = found; 
             }
+            const existing = currentBill.find(i => i.name === name);
+            if(existing) existing.qty++; else currentBill.push({...item, qty:1});
+            renderCart(); renderMenu(activeCategory);
         }
 
-        function toggleAddItem() {
-            const panel = document.getElementById('addItemPanel');
-            if(panel) panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-        }
-
-        async function addNewMenuItem() {
-            const name = document.getElementById('newItemName').value.trim();
-            const price = parseInt(document.getElementById('newItemPrice').value);
-            const category = document.getElementById('newItemCategory').value;
-
-            if (name && price && price > 0) {
-                if (!savedMenu[category]) savedMenu[category] = [];
-                savedMenu[category].push({ name: name, price: price });
-                localStorage.setItem('snackMenu_v8', JSON.stringify(savedMenu));
-                
-                document.getElementById('newItemName').value = '';
-                document.getElementById('newItemPrice').value = '';
-                toggleAddItem();
-                
-                if (activeCategory === category || activeCategory === 'All') renderMenu(activeCategory);
-                showToast(`Added ${name}! Syncing to cloud...`);
-
-                // Sync new item to Google Sheets
-                if (GOOGLE_WEB_APP_URL !== "YOUR_GOOGLE_SCRIPT_URL_HERE" && navigator.onLine) {
-                    try {
-                        await fetch(GOOGLE_WEB_APP_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({ action: 'addMenuItem', category: category, name: name, price: price }),
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-                        });
-                    } catch (e) {
-                        console.error("Failed to sync new item to cloud.");
-                    }
-                }
+        function updateQty(name, delta) {
+            if(navigator.vibrate) navigator.vibrate(20);
+            const idx = currentBill.findIndex(i => i.name === name);
+            if(idx !== -1) {
+                currentBill[idx].qty += delta;
+                if(currentBill[idx].qty <= 0) currentBill.splice(idx, 1);
             }
-        }
-
-        /* --- Cart & Upsells --- */
-        function addToBill(item) {
-            const existing = currentBill.find(i => i.name === item.name);
-            if (existing) existing.qty++; else currentBill.push({ ...item, qty: 1 });
-            renderCart();
-            const badge = document.getElementById('fabCount'); badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = 'pop 0.3s';
-        }
-
-        function changeQty(index, delta) {
-            currentBill[index].qty += delta;
-            if (currentBill[index].qty <= 0) currentBill.splice(index, 1);
-            renderCart(); if(currentBill.length === 0) closeAllPanels();
+            renderCart(); renderMenu(activeCategory);
         }
 
         function renderCart() {
             const container = document.getElementById('cartItems');
-            let html = '';
-            
-            // Generate Main Cart Items
-            currentBill.forEach((item, index) => {
-                html += `
-                <div class="cart-row" style="margin-bottom:12px;">
-                    <div style="flex:1"><div style="font-weight:600">${item.name}</div><div style="color:#888; font-size:0.9em;">₹${item.price}</div></div>
-                    <div class="qty-pill">
-                        <button class="qty-btn" onclick="changeQty(${index}, -1)"><span class="material-symbols-rounded" style="font-size: 20px;">remove</span></button>
-                        <span style="font-weight:700; width:20px; text-align:center;">${item.qty}</span>
-                        <button class="qty-btn" onclick="changeQty(${index}, 1)"><span class="material-symbols-rounded" style="font-size: 20px;">add</span></button>
+            let html = currentBill.map(item => `
+                <div class="cart-row" style="padding:15px 0; border-bottom:1px solid var(--border);">
+                    <div style="flex:1;"><div style="font-weight:600;">${item.name}</div><div style="color:var(--text-muted); font-size:0.9em;">₹${item.price}</div></div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div class="item-qty-controls">
+                            <button class="item-qty-btn" onclick="updateQty('${item.name}', -1)">-</button>
+                            <span style="font-weight:700;">${item.qty}</span>
+                            <button class="item-qty-btn" onclick="updateQty('${item.name}', 1)">+</button>
+                        </div>
+                        <div style="font-weight:800; width:60px; text-align:right;">₹${item.price * item.qty}</div>
                     </div>
-                    <div style="width:70px; text-align:right; font-weight:700;">₹${item.price * item.qty}</div>
-                </div>`;
-            });
+                </div>
+            `).join('');
 
-            // Smart Upsell Engine
-            if(currentBill.length > 0) {
-                for(let rule of upsellRules) {
-                    const hasTrigger = currentBill.some(i => i.name === rule.trigger);
-                    const hasSuggest = currentBill.some(i => i.name === rule.suggest);
-                    if(hasTrigger && !hasSuggest) {
-                        html += `
-                        <div class="upsell-banner">
-                            <div>${rule.text}</div>
-                            <button onclick='addToBill(${JSON.stringify(rule.itemObj)})' style="background:var(--primary); color:#000; border:none; padding:6px 12px; border-radius:var(--radius-pill); font-weight:700; cursor:pointer;">Add</button>
-                        </div>`;
-                        break; // Show max 1 upsell
-                    }
+            for(let rule of upsellRules) {
+                if(currentBill.some(i => i.name === rule.trigger) && !currentBill.some(i => i.name === rule.suggest)) {
+                    html += `<div class="upsell-banner"><div>${rule.text}</div><button onclick="addToBill('${rule.suggest}')" style="background:var(--primary); color:#000; border:none; padding:8px 12px; border-radius:20px; font-weight:800; cursor:pointer;">Add</button></div>`;
+                    break;
                 }
             }
-
             container.innerHTML = html || `<div style="text-align:center; color:#888; margin-top:50px;">Cart is empty</div>`;
             updateTotals();
-            syncMenuQuantities();
-        }
-
-        function applyDiscount(type, val) {
-            activeDiscount = { type, val };
-            document.querySelectorAll('.discount-btn').forEach(b => b.classList.remove('active'));
-            if(type === 'percent') document.getElementById('btnDisc10').classList.add('active');
-            updateTotals();
-        }
-
-        function showCustomDiscount() {
-            document.getElementById('btnDiscCustom').style.display = 'none';
-            document.getElementById('customDiscInput').style.display = 'block';
-            document.getElementById('customDiscInput').focus();
-        }
-
-        function applyCustomDiscount() {
-            const val = parseFloat(document.getElementById('customDiscInput').value) || 0;
-            activeDiscount = { type: 'flat', val: val };
-            document.querySelectorAll('.discount-btn').forEach(b => b.classList.remove('active'));
-            updateTotals();
-        }
-
-        function clearDiscount() {
-            document.getElementById('btnDiscCustom').style.display = 'block';
-            document.getElementById('customDiscInput').style.display = 'none';
-            document.getElementById('customDiscInput').value = '';
-            applyDiscount('none', 0);
         }
 
         function updateTotals() {
-            const totalItems = currentBill.reduce((sum, i) => sum + i.qty, 0);
-            const subtotal = currentBill.reduce((sum, i) => sum + (i.price * i.qty), 0);
-            
-            let discAmt = 0;
-            if(activeDiscount.type === 'percent') discAmt = subtotal * (activeDiscount.val / 100);
-            if(activeDiscount.type === 'flat') discAmt = activeDiscount.val;
-            if(discAmt > subtotal) discAmt = subtotal;
-
-            const isParcel = document.getElementById('parcelToggle').checked;
-            const parcelFee = (isParcel && subtotal > 0) ? 5 : 0;
-            
-            finalTotalToPay = Math.round((subtotal - discAmt) + parcelFee);
+            const subtotal = currentBill.reduce((s, i) => s + (i.price * i.qty), 0);
+            let discAmt = activeDiscount.type === 'percent' ? (subtotal * activeDiscount.val / 100) : activeDiscount.val;
+            const parcel = document.getElementById('parcelToggle').checked ? 5 : 0;
+            const finalTotal = Math.max(0, Math.round(subtotal - discAmt + parcel));
+            finalTotalToPay = finalTotal;
 
             document.getElementById('subtotalLabel').innerText = `₹${subtotal}`;
+            document.getElementById('totalLabel').innerText = `₹${finalTotal}`;
+            document.getElementById('fabTotal').innerText = `₹${finalTotal}`;
+            
+            const count = currentBill.reduce((s, i) => s + i.qty, 0);
+            document.getElementById('fabCount').innerText = count;
+            document.getElementById('fabContainer').classList.toggle('show', count > 0);
+            document.getElementById('checkoutBtn').disabled = count === 0;
+
             if(discAmt > 0) {
                 document.getElementById('discountRowLabel').style.display = 'flex';
                 document.getElementById('discountLabel').innerText = `-₹${Math.round(discAmt)}`;
-            } else { document.getElementById('discountRowLabel').style.display = 'none'; }
-            
-            document.getElementById('totalLabel').innerText = `₹${finalTotalToPay}`;
-            document.getElementById('checkoutBtn').disabled = totalItems === 0;
-            
-            if (totalItems > 0) {
-                document.getElementById('fabCount').innerText = totalItems; document.getElementById('fabTotal').innerText = `₹${finalTotalToPay}`;
-                document.getElementById('fabContainer').classList.add('show');
-            } else { document.getElementById('fabContainer').classList.remove('show'); }
+            } else document.getElementById('discountRowLabel').style.display = 'none';
         }
 
-        /* --- CRM / Loyalty Logic --- */
         function lookupCustomer() {
-            const phone = document.getElementById('custPhone').value.trim();
-            const badge = document.getElementById('loyaltyBadge');
-            badge.style.display = 'none';
-            if(phone.length >= 10) {
-                if(customers[phone]) {
-                    document.getElementById('custName').value = customers[phone].name;
-                    let visits = customers[phone].visits || 0;
-                    if((visits + 1) % 5 === 0) { badge.style.display = 'block'; }
-                }
-            }
+            const phone = document.getElementById('custPhone').value;
+            if(phone.length === 10 && customers[phone]) {
+                document.getElementById('custName').value = customers[phone].name;
+                if((customers[phone].visits + 1) % 5 === 0) document.getElementById('loyaltyBadge').style.display = 'block';
+            } else document.getElementById('loyaltyBadge').style.display = 'none';
         }
 
-        /* --- Checkout & Multi-Tender --- */
+        function applyDiscount(t,v) { activeDiscount = {type:t, val:v}; updateTotals(); }
+        function showCustomDiscount() { document.getElementById('btnDiscCustom').style.display = 'none'; document.getElementById('customDiscInput').style.display = 'block'; document.getElementById('customDiscInput').focus(); }
+        function applyCustomDiscount() { applyDiscount('flat', parseInt(document.getElementById('customDiscInput').value) || 0); }
+        function clearDiscount() { applyDiscount('none', 0); document.getElementById('btnDiscCustom').style.display='block'; document.getElementById('customDiscInput').style.display='none'; }
+
+        function setTender(t) {
+            currentTender = t;
+            document.querySelectorAll('.tender-tab').forEach(el => el.classList.toggle('active', el.id.toLowerCase().includes(t)));
+            document.getElementById('splitUI').style.display = t === 'split' ? 'block' : 'none';
+            document.getElementById('qrSection').style.display = t === 'cash' ? 'none' : 'block';
+            if(t !== 'cash') generateQR(); else stopWebhookPolling();
+        }
+
+        function generateQR() {
+            const cash = currentTender === 'split' ? (parseInt(document.getElementById('splitCashInput').value) || 0) : 0;
+            const amt = Math.max(0, finalTotalToPay - cash);
+            document.getElementById('paymentAmount').innerText = `₹${amt}`;
+            const upi = `upi://pay?pa=${PAYTM_UPI_ID}&pn=Snack%20Attack&am=${amt}&cu=INR`;
+            document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(upi)}&size=250x250`;
+            document.getElementById('qrCodeImg').onload = () => { document.getElementById('qrCodeImg').style.display = 'block'; document.getElementById('qrLoading').style.display = 'none'; };
+            startWebhookPolling();
+        }
+
+        function updateSplitMath() { generateQR(); }
+
         function initiateCheckout() {
-            if(currentBill.length === 0) return;
-            document.getElementById('overlayBackdrop').classList.add('open');
             document.getElementById('paymentModal').classList.add('open');
-            
-            // Reset Modal UI
-            document.getElementById('qrSection').style.display = 'block';
+            document.getElementById('overlayBackdrop').classList.add('open');
             document.getElementById('successSection').style.display = 'none';
-            document.getElementById('paymentActions').style.display = 'flex';
+            document.getElementById('payActions').style.display = 'flex';
             setTender('upi');
         }
 
-        function cancelPayment() {
-            clearInterval(webhookInterval);
-            document.getElementById('paymentModal').classList.remove('open');
-            document.getElementById('overlayBackdrop').classList.remove('open');
-        }
-
-        function failPayment(reason = "Payment Failed") {
-            clearInterval(webhookInterval);
-            if(navigator.vibrate) navigator.vibrate([200, 100, 200]); 
-
-            const statusDiv = document.getElementById('verifyStatus');
-            statusDiv.innerHTML = `<span class="material-symbols-rounded">error</span> ${reason}`;
-            statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
-            statusDiv.style.color = '#ef4444';
-            statusDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-            
-            showToast("Payment failed. Please try again.");
-        }
-
-        function startWebhookPolling() {
-            clearInterval(webhookInterval);
-            const statusDiv = document.getElementById('verifyStatus');
-            statusDiv.style.display = 'flex';
-            statusDiv.innerHTML = `<span class="material-symbols-rounded spinner">sync</span> Awaiting payment webhook...`;
-            statusDiv.style.background = 'rgba(14, 165, 233, 0.1)';
-            statusDiv.style.color = '#0ea5e9';
-            statusDiv.style.borderColor = 'rgba(14, 165, 233, 0.3)';
-            
-            document.getElementById('failMockBtn').style.display = 'block';
-            document.getElementById('manualConfirmBtn').innerText = 'Force Success';
-
-            let timeElapsed = 0;
-            const maxTimeout = 60; // 60s timeout
-            webhookInterval = setInterval(() => {
-                timeElapsed++;
-                if(timeElapsed >= maxTimeout) failPayment("Payment Timeout.");
-            }, 1000);
-        }
-
-        function stopWebhookPolling() {
-            clearInterval(webhookInterval);
-            document.getElementById('verifyStatus').style.display = 'none';
-            document.getElementById('failMockBtn').style.display = 'none';
-            document.getElementById('manualConfirmBtn').innerText = 'Mark Paid';
-        }
-
-        function setTender(type) {
-            currentTender = type;
-            document.querySelectorAll('.tender-tab').forEach(t => t.classList.remove('active'));
-            const splitUI = document.getElementById('splitUI');
-            const qrSec = document.getElementById('qrSection');
-            
-            if(type === 'upi') {
-                document.getElementById('tabUpi').classList.add('active'); splitUI.style.display = 'none'; qrSec.style.display = 'block';
-                generateQR(finalTotalToPay);
-                startWebhookPolling();
-            } else if(type === 'cash') {
-                document.getElementById('tabCash').classList.add('active'); splitUI.style.display = 'none'; qrSec.style.display = 'none';
-                stopWebhookPolling();
-            } else if(type === 'split') {
-                document.getElementById('tabSplit').classList.add('active'); splitUI.style.display = 'block'; qrSec.style.display = 'block';
-                updateSplitMath();
-            }
-        }
-
-        function updateSplitMath() {
-            const cash = parseFloat(document.getElementById('splitCashInput').value) || 0;
-            const remaining = finalTotalToPay - cash;
-            document.getElementById('splitUpiRemaining').innerText = `₹${remaining > 0 ? remaining : 0}`;
-            if(remaining > 0) { 
-                document.getElementById('qrSection').style.display = 'block'; 
-                generateQR(remaining); 
-                startWebhookPolling();
-            } 
-            else { 
-                document.getElementById('qrSection').style.display = 'none'; 
-                stopWebhookPolling();
-            }
-        }
-
-        function generateQR(amount) {
-            document.getElementById('paymentAmount').innerText = `₹${amount}`;
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=${PAYTM_UPI_ID}&pn=Snack Attack&am=${amount}&cu=INR`)}&color=09090b&bgcolor=ffffff`;
-            document.getElementById('qrCodeImg').style.display = 'none'; document.getElementById('qrLoading').style.display = 'block';
-            document.getElementById('qrCodeImg').onload = function() { this.style.display = 'block'; document.getElementById('qrLoading').style.display = 'none'; };
-            document.getElementById('qrCodeImg').src = qrUrl;
-        }
-
-        async function processPayment(manualForce = false) {
-            clearInterval(webhookInterval);
-            
-            // 1. Safety check: Don't send if cart is empty
-            if (currentBill.length === 0) {
-                showToast("Cart is empty!");
-                return;
-            }
-
-            // 2. PREPARE DATA FIRST (Snapshot the cart before clearing)
-            const phone = document.getElementById('custPhone').value.trim();
-            const name = document.getElementById('custName').value.trim();
+        async function processPayment(manual = false) {
+            const orderId = "ORD" + Math.floor(Math.random()*100000);
+            const phone = document.getElementById('custPhone').value;
             const itemsString = currentBill.map(i => `${i.qty}x ${i.name}`).join(", ");
-            const isParcel = document.getElementById('parcelToggle').checked;
             
-            const payload = { 
-                orderId: "ORD" + Math.floor(Math.random() * 100000), 
-                cart: [...currentBill], 
-                items: itemsString,
-                parcelCharge: isParcel ? 5 : 0,
-                total: finalTotalToPay, 
-                tender: currentTender, 
-                timestamp: new Date().toISOString(),
-                voided: false
-            };
-
-            // 3. SEND TO GOOGLE SHEETS (Immediate trigger)
-            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
-                fetch(GOOGLE_WEB_APP_URL, { 
-                    method: 'POST', 
-                    mode: 'no-cors', 
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(payload) 
-                }).then(() => console.log("Order synced to Sheet"));
-            } else {
-                saveOffline(payload);
+            if(phone) {
+                if(!customers[phone]) customers[phone] = { name: document.getElementById('custName').value, visits: 0 };
+                customers[phone].visits++;
+                localStorage.setItem('crm_db', JSON.stringify(customers));
             }
 
-            // 4. SAVE LOCALLY FOR ADMIN PANEL
+            const payload = { 
+                action: 'saveOrder', orderId, total: finalTotalToPay, tender: currentTender, 
+                timestamp: new Date().toISOString(), cart: [...currentBill], items: itemsString, voided: false 
+            };
+            
             let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
             history.push(payload);
             localStorage.setItem('orderHistory', JSON.stringify(history));
 
-            if(phone) {
-                if(!customers[phone]) customers[phone] = { name, visits: 0 };
-                customers[phone].visits += 1;
-                localStorage.setItem('crm_db', JSON.stringify(customers));
+            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+                fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+            } else {
+                saveOffline(payload);
             }
 
-            // 5. UPDATE UI
             playSuccessSound();
             document.getElementById('qrSection').style.display = 'none';
-            document.getElementById('paymentActions').style.display = 'none';
+            document.getElementById('payActions').style.display = 'none';
             document.getElementById('successSection').style.display = 'block';
             document.getElementById('waBtn').style.display = phone.length >= 10 ? 'flex' : 'none';
-
-            // 6. CLEAR CART LAST (Wait 500ms to ensure everything processed)
-            setTimeout(() => {
-                currentBill = []; 
-                document.getElementById('parcelToggle').checked = false; 
-                clearDiscount();
-                document.getElementById('custPhone').value = ''; 
-                document.getElementById('custName').value = ''; 
-                renderCart(); 
-            }, 500);
-
-            // Auto-close modal after 4 seconds
+            
             setTimeout(() => { 
-                if(document.getElementById('paymentModal').classList.contains('open')) closeAllPanels(); 
+                currentBill = []; renderCart(); renderMenu(activeCategory);
+                if(document.getElementById('paymentModal').classList.contains('open')) closeAllPanels();
             }, 4000);
         }
 
         function saveOffline(payload) {
-            let offline = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-            offline.push(payload); localStorage.setItem('offlineQueue', JSON.stringify(offline));
-            showToast("Saved offline. Will sync automatically.");
+            let queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+            queue.push(payload);
+            localStorage.setItem('offlineQueue', JSON.stringify(queue));
+            showToast("Saved Offline ✓");
         }
 
         async function handleOnlineSync() {
             document.getElementById('offlineBanner').style.display = 'none';
-            let offline = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-            if (offline.length === 0 || GOOGLE_WEB_APP_URL === "YOUR_GOOGLE_SCRIPT_URL_HERE") return;
-            
-            showToast(`Syncing ${offline.length} pending orders to cloud...`);
-            let pending = [];
-            for(let payload of offline) {
-                try { await fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) }); } 
-                catch(e) { pending.push(payload); }
-            }
-            localStorage.setItem('offlineQueue', JSON.stringify(pending));
+            let queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+            if(queue.length === 0 || GOOGLE_WEB_APP_URL.includes("__")) return;
+            for(let p of queue) { try { await fetch(GOOGLE_WEB_APP_URL, { method:'POST', body:JSON.stringify(p) }); } catch(e){} }
+            localStorage.removeItem('offlineQueue');
+            showToast("Cloud Synced ✓");
         }
 
         function sendWhatsApp() {
-            let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            const lastOrder = history[history.length-1];
-            const phone = document.getElementById('custPhone').value || Object.keys(customers)[Object.keys(customers).length-1];
+            const h = JSON.parse(localStorage.getItem('orderHistory'));
+            const order = h[h.length-1];
+            const phone = document.getElementById('custPhone').value;
             
-            let text = `SNACK ATTACK\n\n`;
-            text += `${lastOrder.orderId}\n\n`;
-            
-            lastOrder.cart.forEach(i => {
-                text += `${i.name} ×${i.qty} — ₹${i.price*i.qty}\n`;
-            });
-            
-            text += `\nTotal — ₹${lastOrder.total}\n\n`;
-            text += `Paid ✓\n\n`;
+            let text = `*SNACK ATTACK*\n\n`;
+            text += `_${order.orderId}_\n\n`;
+            order.cart.forEach(i => { text += `　 ${i.name} ×${i.qty} — ₹${i.price*i.qty}\n`; });
+            text += `\n*Total — ₹${order.total}*\n\n`;
+            text += `*Paid ✓*\n\n`;
             text += `Thanks for visiting.\n\n`;
             text += `Reach us:\nhttps://maps.app.goo.gl/btsT1HsHoYKt9gpS6`;
             
-            window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(text)}`);
             closeAllPanels();
         }
 
-        /* --- Admin & Forecasting --- */
-        let salesChartObj, itemsChartObj, forecastChartObj;
-        
-        function promptAdmin() { closeAllPanels(); document.getElementById('overlayBackdrop').classList.add('open'); document.getElementById('authModal').classList.add('open'); document.getElementById('adminPassInput').value = ''; document.getElementById('adminPassInput').focus(); }
-        function closeAuth() { document.getElementById('authModal').classList.remove('open'); document.getElementById('overlayBackdrop').classList.remove('open'); }
-        function verifyAdmin() { if(document.getElementById('adminPassInput').value === '1234') { closeAuth(); openAdmin(); } else showToast("Incorrect Password"); }
-
-        function openAdmin() {
-            document.getElementById('overlayBackdrop').classList.add('open'); document.getElementById('adminPanel').classList.add('open');
-            document.getElementById('adminDatePicker').value = new Date().toISOString().split('T')[0];
-            loadAdminData(); loadForecast();
-        }
-
-        function switchAdminTab(tab) {
-            document.getElementById('tabOverview').classList.remove('active'); document.getElementById('tabForecast').classList.remove('active');
-            document.getElementById('sectOverview').style.display = 'none'; document.getElementById('sectForecast').style.display = 'none';
-            if(tab === 'overview') { document.getElementById('tabOverview').classList.add('active'); document.getElementById('sectOverview').style.display = 'block'; }
-            if(tab === 'forecast') { document.getElementById('tabForecast').classList.add('active'); document.getElementById('sectForecast').style.display = 'block'; }
+        function cancelPayment() { 
+            stopWebhookPolling();
+            document.getElementById('paymentModal').classList.remove('open'); 
+            document.getElementById('overlayBackdrop').classList.remove('open');
         }
 
         function loadAdminData() {
-            const dateInput = document.getElementById('adminDatePicker').value;
-            const targetDateStr = dateInput ? new Date(dateInput).toDateString() : new Date().toDateString();
-            let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+            const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+            const selDate = new Date(document.getElementById('adminDatePicker').value).toDateString();
+            const daily = history.filter(o => new Date(o.timestamp).toDateString() === selDate);
+            const valid = daily.filter(o => !o.voided);
+
+            document.getElementById('adminRev').innerText = "₹" + valid.reduce((s,o) => s + o.total, 0);
+            document.getElementById('adminOrders').innerText = valid.length;
             
-            // Only orders for selected day
-            let dailyOrders = history.filter(o => new Date(o.timestamp).toDateString() === targetDateStr);
-            
-            // Calculate valid orders (not voided)
-            let validOrders = dailyOrders.filter(o => !o.voided);
-
-            document.getElementById('adminOrders').innerText = validOrders.length;
-            document.getElementById('adminRev').innerText = '₹' + validOrders.reduce((sum, o) => sum + o.total, 0);
-
-            // Render Order List
-            const listEl = document.getElementById('adminOrderList');
-            if(dailyOrders.length === 0) {
-                listEl.innerHTML = '<div style="color:#888; text-align:center; padding: 20px;">No orders found for this date.</div>';
-            } else {
-                listEl.innerHTML = dailyOrders.slice().reverse().map(o => {
-                    const isVoid = o.voided;
-                    const voidBtn = !isVoid ? `<button onclick="promptVoidOrder('${o.orderId}')" style="background:transparent; border:1px solid #ef4444; color:#ef4444; padding: 4px 8px; border-radius: 6px; cursor:pointer; font-size:0.8em; margin-top: 5px;">Void Order</button>` : `<div style="color:#ef4444; font-size:0.85em; font-weight:bold; margin-top:5px;">VOIDED</div>`;
-                    const op = isVoid ? '0.5' : '1';
-                    const strike = isVoid ? 'line-through' : 'none';
-
-                    return `
-                    <div style="background:var(--bg-surface); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center; opacity: ${op};">
-                        <div>
-                            <div style="font-weight:700; color:var(--primary); font-size:1.1em; text-decoration: ${strike};">${o.orderId}</div>
-                            <div style="font-size:0.85em; color:var(--text-muted); margin-bottom:4px;">${new Date(o.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                            <div style="font-size:0.9em; color:var(--text-main); line-height:1.4; text-decoration: ${strike};">${o.items}</div>
-                            ${voidBtn}
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-weight:800; font-size:1.2em; color:var(--text-main); text-decoration: ${strike};">₹${o.total}</div>
-                            <div style="font-size:0.8em; color:var(--text-muted); margin-top:4px;">${o.parcelCharge > 0 ? 'Parcel' : 'Dine-in'}</div>
-                        </div>
+            document.getElementById('adminOrderList').innerHTML = daily.slice().reverse().map(o => `
+                <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}">
+                    <div><b style="${o.voided?'text-decoration:line-through':''}">${o.orderId}</b><br><small>${o.items}</small>
+                    ${!o.voided?`<br><button onclick="promptVoid('${o.orderId}')" style="background:none; border:1px solid #ef4444; color:#ef4444; font-size:11px; padding:3px 8px; border-radius:4px; margin-top:8px; cursor:pointer;">Void Order</button>`:'<b style="color:#ef4444; font-size:11px;">VOIDED</b>'}
                     </div>
-                    `;
-                }).join('');
-            }
+                    <div style="text-align:right; font-weight:700; ${o.voided?'text-decoration:line-through':''}">₹${o.total}</div>
+                </div>
+            `).join('') || '<div style="color:#666; text-align:center;">No orders for this day.</div>';
 
-            // Update Charts using ONLY valid orders
-            let hours = new Array(24).fill(0);
-            validOrders.forEach(o => { hours[new Date(o.timestamp).getHours()] += o.total; });
-            const ctxSales = document.getElementById('salesChart').getContext('2d');
+            let hours = new Array(24).fill(0); valid.forEach(o => hours[new Date(o.timestamp).getHours()] += o.total);
             if(salesChartObj) salesChartObj.destroy();
-            salesChartObj = new Chart(ctxSales, { type: 'line', data: { labels: hours.map((_,i)=>i+':00'), datasets: [{ label: 'Revenue/Hr (₹)', data: hours, borderColor: '#ff7700', tension: 0.4, fill: true, backgroundColor: 'rgba(255, 119, 0, 0.1)' }] }, options: { responsive: true, maintainAspectRatio: false } });
-            
-            // Update items chart 
-            let itemCounts = {};
-            validOrders.forEach(o => o.cart.forEach(i => { itemCounts[i.name] = (itemCounts[i.name] || 0) + i.qty; }));
-            let sortedItems = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
-            
-            const ctxItems = document.getElementById('itemsChart').getContext('2d');
-            if(itemsChartObj) itemsChartObj.destroy();
-            itemsChartObj = new Chart(ctxItems, { type: 'bar', data: { labels: sortedItems.map(i=>i[0]), datasets: [{ label: 'Top Items Sold', data: sortedItems.map(i=>i[1]), backgroundColor: '#0ea5e9', borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false } });
+            salesChartObj = new Chart(document.getElementById('salesChart'), { type:'line', data:{ labels:hours.map((_,i)=>i+':00'), datasets:[{label:'Revenue/Hr', data:hours, borderColor:'#ff7700', backgroundColor:'rgba(255,119,0,0.1)', fill:true, tension:0.4}] }, options:{maintainAspectRatio:false} });
         }
 
-        /* --- Void Order Logic --- */
-        function promptVoidOrder(orderId) {
-            currentVoidOrderId = orderId;
-            document.getElementById('voidOrderIdTxt').innerText = orderId;
-            document.getElementById('voidAuthModal').classList.add('open');
-            document.getElementById('voidPassInput').value = '';
-            document.getElementById('voidPassInput').focus();
-        }
-
-        function closeVoidAuth() {
-            document.getElementById('voidAuthModal').classList.remove('open');
-            currentVoidOrderId = null;
-        }
-
+        function promptVoid(id) { currentVoidOrderId = id; document.getElementById('voidOrderIdTxt').innerText = id; document.getElementById('voidAuthModal').classList.add('open'); document.getElementById('voidPassInput').value = ''; document.getElementById('voidPassInput').focus(); }
+        
         function executeVoidOrder() {
             if(document.getElementById('voidPassInput').value === '1234') {
-                let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-                let targetIndex = history.findIndex(o => o.orderId === currentVoidOrderId);
-                
-                if(targetIndex !== -1) {
-                    // 1. Mark voided locally
-                    history[targetIndex].voided = true;
-                    localStorage.setItem('orderHistory', JSON.stringify(history));
-                    showToast(`Order ${currentVoidOrderId} Voided`);
-                    
-                    // 2. Sync the void status to Google Sheets Cloud
-                    if (navigator.onLine && GOOGLE_WEB_APP_URL !== "YOUR_GOOGLE_SCRIPT_URL_HERE") {
-                        fetch(GOOGLE_WEB_APP_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({ 
-                                action: 'voidOrder', 
-                                orderId: currentVoidOrderId, 
-                                timestamp: history[targetIndex].timestamp 
-                            }),
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-                        }).catch(e => console.warn("Cloud void sync failed, but local void succeeded."));
-                    }
-                    
-                    loadAdminData(); // Refresh UI & Charts
-                }
-                closeVoidAuth();
-            } else {
-                showToast('Incorrect Admin Password');
-            }
+                let h = JSON.parse(localStorage.getItem('orderHistory'));
+                let target = h.find(o => o.orderId === currentVoidOrderId);
+                target.voided = true;
+                localStorage.setItem('orderHistory', JSON.stringify(h));
+                if(!GOOGLE_WEB_APP_URL.includes("__")) fetch(GOOGLE_WEB_APP_URL, { method:'POST', body:JSON.stringify({action:'voidOrder', orderId:currentVoidOrderId, timestamp:target.timestamp}) });
+                loadAdminData();
+                document.getElementById('voidAuthModal').classList.remove('open');
+                showToast("Order Voided");
+            } else showToast("Wrong Password");
         }
 
-        // AI Demand Forecasting (Historical Rule-Based)
         function loadForecast() {
-            const targetDayNum = parseInt(document.getElementById('forecastDay').value);
-            let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            
-            // Find all past valid orders that occurred on this specific Day of the Week
-            let relevantOrders = history.filter(o => new Date(o.timestamp).getDay() === targetDayNum && !o.voided);
-            
-            // Count unique specific days (e.g. how many "Fridays" are in the DB)
-            let uniqueDates = new Set(relevantOrders.map(o => new Date(o.timestamp).toDateString())).size;
-            if(uniqueDates === 0) uniqueDates = 1; // avoid divide by zero
-
-            // Aggregate item quantities
-            let itemCounts = {};
-            relevantOrders.forEach(o => o.cart.forEach(i => { itemCounts[i.name] = (itemCounts[i.name] || 0) + i.qty; }));
-            
-            // Average per day
-            let forecastData = Object.entries(itemCounts).map(([name, total]) => ({ name, avg: Math.ceil(total / uniqueDates) })).sort((a,b)=>b.avg-a.avg).slice(0, 6); // Top 6
-
-            const ctxForecast = document.getElementById('forecastChart').getContext('2d');
+            const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+            const dayNum = parseInt(document.getElementById('forecastDay').value);
+            const filtered = history.filter(o => new Date(o.timestamp).getDay() === dayNum && !o.voided);
+            const uniqueDays = new Set(filtered.map(o => new Date(o.timestamp).toDateString())).size || 1;
+            let counts = {};
+            filtered.forEach(o => o.cart.forEach(i => counts[i.name] = (counts[i.name] || 0) + i.qty));
+            let data = Object.entries(counts).map(([n, q]) => ({ n, v: Math.ceil(q/uniqueDays) })).sort((a,b)=>b.v-a.v).slice(0,6);
             if(forecastChartObj) forecastChartObj.destroy();
-            forecastChartObj = new Chart(ctxForecast, {
-                type: 'bar',
-                data: { labels: forecastData.map(d=>d.name), datasets: [{ label: 'Predicted Quantity Needed', data: forecastData.map(d=>d.avg), backgroundColor: '#0ea5e9', borderRadius: 6 }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, stepSize: 1 } } }
-            });
+            forecastChartObj = new Chart(document.getElementById('forecastChart'), { type:'bar', data:{ labels:data.map(d=>d.n), datasets:[{label:'Predicted Needed Qty', data:data.map(d=>d.v), backgroundColor:'#0ea5e9', borderRadius:6}] }, options:{maintainAspectRatio:false} });
         }
 
-        function openCart() { if(currentBill.length===0) return; document.getElementById('overlayBackdrop').classList.add('open'); document.getElementById('cartPanel').classList.add('open'); }
-        function closeAllPanels() { document.getElementById('overlayBackdrop').classList.remove('open'); document.querySelectorAll('.slide-panel').forEach(p => p.classList.remove('open')); document.getElementById('paymentModal').classList.remove('open'); closeAuth(); closeVoidAuth(); }
-        function showToast(msg) { const t = document.getElementById('toast'); document.getElementById('toastMsg').innerText = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+        function startWebhookPolling() { stopWebhookPolling(); webhookInterval = setInterval(() => {}, 1000); }
+        function stopWebhookPolling() { clearInterval(webhookInterval); }
+        function showToast(m) { const t = document.getElementById('toast'); document.getElementById('toastMsg').innerText = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+        function toggleSearch() { document.getElementById('searchContainer').classList.toggle('expanded'); document.getElementById('searchInput').focus(); }
+        function closeSearchIfEmpty() { if(!document.getElementById('searchInput').value) document.getElementById('searchContainer').classList.remove('expanded'); }
+        function handleSearch(v) { renderMenu(activeCategory, v); }
+        function promptAdmin() { document.getElementById('authModal').classList.add('open'); document.getElementById('overlayBackdrop').classList.add('open'); }
+        function verifyAdmin() { if(document.getElementById('adminPassInput').value === '1234') { document.getElementById('authModal').classList.remove('open'); openAdmin(); } else showToast("Wrong Password"); }
+        function openAdmin() { document.getElementById('adminPanel').classList.add('open'); document.getElementById('adminDatePicker').value = new Date().toISOString().split('T')[0]; loadAdminData(); loadForecast(); }
+        function switchAdminTab(t) { document.querySelectorAll('.admin-tab').forEach(el => el.classList.toggle('active', el.id.includes(t))); document.getElementById('sectOverview').style.display = t === 'overview' ? 'block' : 'none'; document.getElementById('sectForecast').style.display = t === 'forecast' ? 'block' : 'none'; }
+        function openCart() { document.getElementById('cartPanel').classList.add('open'); document.getElementById('overlayBackdrop').classList.add('open'); renderCart(); }
+        function closeAllPanels() { document.querySelectorAll('.slide-panel, .payment-modal').forEach(p => p.classList.remove('open')); document.getElementById('overlayBackdrop').classList.remove('open'); }
 
         initApp();
     </script>
