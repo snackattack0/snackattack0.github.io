@@ -831,7 +831,10 @@
             }).join('') || '<div style="color:#666; text-align:center; padding:20px;">No orders found for this day.</div>';
 
             // Indestructible Regex Time Extractor
-            let hours = new Array(24).fill(0); 
+            let hoursArray = new Array(24).fill(0); 
+            let minHour = 24; 
+            let maxHour = 0;
+
             valid.forEach(o => {
                 let hr = 0;
                 const tsStr = String(o.timestamp || "");
@@ -844,18 +847,55 @@
                 }
                 
                 const safeTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
-                hours[hr] += safeTotal;
+                hoursArray[hr] += safeTotal;
+
+                if (hr < minHour) minHour = hr;
+                if (hr > maxHour) maxHour = hr;
             });
             
-            // Format labels to 12 AM, 1 PM format etc
-            const chartLabels = hours.map((_, i) => {
+            // If viewing today, ensure the chart extends to the current hour
+            const dateVal = document.getElementById('adminDatePicker').value;
+            const isToday = !dateVal || (new Date(dateVal).toDateString() === new Date().toDateString());
+            if (isToday) {
+                const currentHr = new Date().getHours();
+                if (currentHr > maxHour) maxHour = currentHr;
+                // If no orders yet today, set minHour to currentHr to show 1 dot
+                if (minHour === 24) minHour = currentHr;
+            }
+
+            // Safety fallback if no orders exist for a past date
+            if (minHour === 24) {
+                minHour = 9; // Default 9 AM
+                maxHour = 17; // Default 5 PM
+            }
+
+            const displayHours = [];
+            const displayLabels = [];
+
+            // Crop the chart to only show relevant active business hours
+            for (let i = minHour; i <= maxHour; i++) {
+                displayHours.push(hoursArray[i]);
                 const ampm = i >= 12 ? 'PM' : 'AM';
                 const hrFormat = i % 12 || 12;
-                return `${hrFormat} ${ampm}`;
-            });
+                displayLabels.push(`${hrFormat} ${ampm}`);
+            }
 
             if(salesChartObj) salesChartObj.destroy();
-            salesChartObj = new Chart(document.getElementById('salesChart'), { type:'line', data:{ labels:chartLabels, datasets:[{label:'Revenue/Hr (₹)', data:hours, borderColor:'#ff7700', backgroundColor:'rgba(255,119,0,0.1)', fill:true, tension:0.4}] }, options:{maintainAspectRatio:false} });
+            salesChartObj = new Chart(document.getElementById('salesChart'), { 
+                type:'line', 
+                data:{ 
+                    labels: displayLabels, 
+                    datasets:[{
+                        label:'Revenue/Hr (₹)', 
+                        data: displayHours, 
+                        borderColor:'#ff7700', 
+                        backgroundColor:'rgba(255,119,0,0.1)', 
+                        fill:true, 
+                        tension:0.4
+                    }] 
+                }, 
+                options:{maintainAspectRatio:false} 
+            });
 
             let itemCounts = {}; 
             valid.forEach(o => {
