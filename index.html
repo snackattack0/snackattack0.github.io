@@ -101,6 +101,7 @@
         /* --- Swiggy Style Card --- */
         .item-card { background: var(--bg-surface); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; min-height: 130px; transition: var(--transition-bounce); position: relative; overflow: hidden; }
         @keyframes staggerFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @media (hover: hover) { .item-card:hover { border-color: rgba(255, 119, 0, 0.4); transform: translateY(-4px); background: var(--bg-surface-hover); box-shadow: 0 8px 24px rgba(0,0,0,0.4); } }
         .item-name { font-weight: 600; font-size: 1.1em; line-height: 1.3; margin-bottom: 8px; }
         .item-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
         .item-price { color: var(--text-muted); font-weight: 500; font-size: 1em; }
@@ -349,17 +350,70 @@
     <div class="toast" id="toast"><span id="toastMsg"></span></div>
 
     <script>
-        // Placeholder replacements via GitHub Actions
+        // CONFIG & SECRETS
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
 
+        /**
+         * Global Success Audio Logic
+         * Fixed ReferenceError by declaring at the very top.
+         */
+        function playSuccessSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch(e){
+                console.error("Audio failed", e);
+            }
+        }
+
         const defaultMenu = {
-            "Fried Options": [{ name: "Classic Fries", price: 49 }, { name: "Piri Piri Fries", price: 49 }, { name: "Cheesy Fries", price: 59 }, { name: "Veg Momos", price: 49 }, { name: "Chicken Momos", price: 59 }, { name: "Corn & Cheese Nuggets", price: 49 }],
-            "Sandwiches": [{ name: "Veg Sandwich", price: 35 }, { name: "Corn & Cheese", price: 40 }, { name: "Paneer Sandwich", price: 45 }, { name: "Chicken Sandwich", price: 45 }],
-            "Mojitos": [{ name: "Virjin Mojito", price: 49 }, { name: "Lime And Mint", price: 49 }, { name: "Blue Curacao", price: 49 }, { name: "Strawberry", price: 49 }],
-            "Salad Varities": [{ name: "Veg Salad", price: 29 }, { name: "Egg Salad", price: 35 }, { name: "Chicken Salad", price: 49 }, { name: "Sprouts Salad", price: 29 }],
-            "Steemed Options": [{ name: "Sprouts", price: 19 }, { name: "Peanuts", price: 19 }, { name: "Sweetcorn", price: 19 }, { name: "Channa", price: 25 }],
-            "Hot Beverages": [{ name: "Tea", price: 15 }, { name: "Coffee", price: 15 }, { name: "Hot Chocolate", price: 29 }]
+            "Fried Options": [
+                { name: "Classic Fries", price: 49 }, 
+                { name: "Piri Piri Fries", price: 49 }, 
+                { name: "Cheesy Fries", price: 59 }, 
+                { name: "Veg Momos", price: 49 }, 
+                { name: "Chicken Momos", price: 59 }, 
+                { name: "Corn & Cheese Nuggets", price: 49 }
+            ],
+            "Sandwiches": [
+                { name: "Veg Sandwich", price: 35 }, 
+                { name: "Corn & Cheese", price: 40 }, 
+                { name: "Paneer Sandwich", price: 45 }, 
+                { name: "Chicken Sandwich", price: 45 }
+            ],
+            "Mojitos": [
+                { name: "Virjin Mojito", price: 49 }, 
+                { name: "Lime And Mint", price: 49 }, 
+                { name: "Blue Curacao", price: 49 }, 
+                { name: "Strawberry", price: 49 }
+            ],
+            "Salad Varities": [
+                { name: "Veg Salad", price: 29 }, 
+                { name: "Egg Salad", price: 35 }, 
+                { name: "Chicken Salad", price: 49 }, 
+                { name: "Sprouts Salad", price: 29 }
+            ],
+            "Steemed Options": [
+                { name: "Sprouts", price: 19 }, 
+                { name: "Peanuts", price: 19 }, 
+                { name: "Sweetcorn", price: 19 }, 
+                { name: "Channa", price: 25 }
+            ],
+            "Hot Beverages": [
+                { name: "Tea", price: 15 }, 
+                { name: "Coffee", price: 15 }, 
+                { name: "Hot Chocolate", price: 29 }
+            ]
         };
 
         const upsellRules = [{ trigger: "Chicken Sandwich", suggest: "Virjin Mojito", text: "🔥 Suggest: Virjin Mojito bundle (+₹49)" }];
@@ -369,6 +423,7 @@
         let activeCategory = "All";
         let activeDiscount = { type: 'none', val: 0 };
         let currentTender = 'upi';
+        let finalTotalToPay = 0;
         let currentVoidOrderId = null;
         let customers = JSON.parse(localStorage.getItem('crm_db')) || {};
         let salesChartObj, itemsChartObj, forecastChartObj;
@@ -554,19 +609,23 @@
         }
 
         async function processPayment(manual = false) {
+            clearInterval(webhookInterval);
             const orderId = "ORD" + Math.floor(Math.random()*100000);
             const phone = document.getElementById('custPhone').value;
+            const name = document.getElementById('custName').value;
             const itemsString = currentBill.map(i => `${i.qty}x ${i.name}`).join(", ");
+            const isParcel = document.getElementById('parcelToggle').checked;
             
             if(phone) {
-                if(!customers[phone]) customers[phone] = { name: document.getElementById('custName').value, visits: 0 };
+                if(!customers[phone]) customers[phone] = { name: name, visits: 0 };
                 customers[phone].visits++;
                 localStorage.setItem('crm_db', JSON.stringify(customers));
             }
 
             const payload = { 
                 action: 'saveOrder', orderId, total: finalTotalToPay, tender: currentTender, 
-                timestamp: new Date().toISOString(), cart: [...currentBill], items: itemsString, voided: false 
+                timestamp: new Date().toISOString(), cart: [...currentBill], items: itemsString, 
+                parcelCharge: isParcel ? 5 : 0, voided: false 
             };
             
             let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
@@ -586,7 +645,11 @@
             document.getElementById('waBtn').style.display = phone.length >= 10 ? 'flex' : 'none';
             
             setTimeout(() => { 
-                currentBill = []; renderCart(); renderMenu(activeCategory);
+                currentBill = []; 
+                document.getElementById('parcelToggle').checked = false;
+                clearDiscount();
+                renderCart(); 
+                renderMenu(activeCategory);
                 if(document.getElementById('paymentModal').classList.contains('open')) closeAllPanels();
             }, 4000);
         }
@@ -610,7 +673,7 @@
         function sendWhatsApp() {
             const h = JSON.parse(localStorage.getItem('orderHistory'));
             const order = h[h.length-1];
-            const phone = document.getElementById('custPhone').value;
+            const phone = document.getElementById('custPhone').value || "0";
             
             let text = `*SNACK ATTACK*\n\n`;
             text += `_${order.orderId}_\n\n`;
@@ -651,6 +714,11 @@
             let hours = new Array(24).fill(0); valid.forEach(o => hours[new Date(o.timestamp).getHours()] += o.total);
             if(salesChartObj) salesChartObj.destroy();
             salesChartObj = new Chart(document.getElementById('salesChart'), { type:'line', data:{ labels:hours.map((_,i)=>i+':00'), datasets:[{label:'Revenue/Hr', data:hours, borderColor:'#ff7700', backgroundColor:'rgba(255,119,0,0.1)', fill:true, tension:0.4}] }, options:{maintainAspectRatio:false} });
+
+            let itemCounts = {}; valid.forEach(o => o.cart.forEach(i => { itemCounts[i.name] = (itemCounts[i.name] || 0) + i.qty; }));
+            let sorted = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            if(itemsChartObj) itemsChartObj.destroy();
+            itemsChartObj = new Chart(document.getElementById('itemsChart'), { type:'bar', data:{ labels:sorted.map(i=>i[0]), datasets:[{label:'Top Items', data:sorted.map(i=>i[1]), backgroundColor:'#0ea5e9'}] }, options:{maintainAspectRatio:false} });
         }
 
         function promptVoid(id) { currentVoidOrderId = id; document.getElementById('voidOrderIdTxt').innerText = id; document.getElementById('voidAuthModal').classList.add('open'); document.getElementById('voidPassInput').value = ''; document.getElementById('voidPassInput').focus(); }
@@ -691,7 +759,10 @@
         function openAdmin() { document.getElementById('adminPanel').classList.add('open'); document.getElementById('adminDatePicker').value = new Date().toISOString().split('T')[0]; loadAdminData(); loadForecast(); }
         function switchAdminTab(t) { document.querySelectorAll('.admin-tab').forEach(el => el.classList.toggle('active', el.id.includes(t))); document.getElementById('sectOverview').style.display = t === 'overview' ? 'block' : 'none'; document.getElementById('sectForecast').style.display = t === 'forecast' ? 'block' : 'none'; }
         function openCart() { document.getElementById('cartPanel').classList.add('open'); document.getElementById('overlayBackdrop').classList.add('open'); renderCart(); }
-        function closeAllPanels() { document.querySelectorAll('.slide-panel, .payment-modal').forEach(p => p.classList.remove('open')); document.getElementById('overlayBackdrop').classList.remove('open'); }
+        function closeAllPanels() { 
+            document.querySelectorAll('.slide-panel, .payment-modal').forEach(p => p.classList.remove('open')); 
+            document.getElementById('overlayBackdrop').classList.remove('open'); 
+        }
 
         initApp();
     </script>
