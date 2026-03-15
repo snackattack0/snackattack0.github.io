@@ -364,9 +364,8 @@
     <div class="toast" id="toast"><span class="material-symbols-rounded" style="color: #0ea5e9;">task_alt</span><span id="toastMsg">Success</span></div>
 
     <script>
-        // These placeholders will be replaced by GitHub Actions during deployment
-        const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
-        const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
+        const GOOGLE_WEB_APP_URL = "YOUR_GOOGLE_SCRIPT_URL_HERE"; 
+        const PAYTM_UPI_ID = "your_paytm_upi_id@paytm"; 
         
         // PWA Setup
         const manifest = { name: "Snack Attack POS", display: "standalone", background_color: "#09090b", theme_color: "#ff7700" };
@@ -453,7 +452,7 @@
         }
 
         async function fetchCloudMenu() {
-            if (GOOGLE_WEB_APP_URL === "__GOOGLE_WEB_APP_URL__") return;
+            if (GOOGLE_WEB_APP_URL === "YOUR_GOOGLE_SCRIPT_URL_HERE") return;
             try {
                 const response = await fetch(GOOGLE_WEB_APP_URL);
                 const cloudMenu = await response.json();
@@ -611,7 +610,7 @@
                 showToast(`Added ${name}! Syncing to cloud...`);
 
                 // Sync new item to Google Sheets
-                if (GOOGLE_WEB_APP_URL !== "__GOOGLE_WEB_APP_URL__" && navigator.onLine) {
+                if (GOOGLE_WEB_APP_URL !== "YOUR_GOOGLE_SCRIPT_URL_HERE" && navigator.onLine) {
                     try {
                         await fetch(GOOGLE_WEB_APP_URL, {
                             method: 'POST',
@@ -849,89 +848,77 @@
             document.getElementById('qrCodeImg').src = qrUrl;
         }
 
-            async function processPayment(manualForce = false) {
-                clearInterval(webhookInterval);
-                
-                // 1. Check if bill is empty BEFORE doing anything
-                if (currentBill.length === 0) {
-                    showToast("Cart is already empty!");
-                    return;
-                }
+        async function processPayment(manualForce = false) {
+            clearInterval(webhookInterval);
             
-                if(manualForce) {
-                    const statusDiv = document.getElementById('verifyStatus');
-                    if(statusDiv) {
-                        statusDiv.innerHTML = `<span class="material-symbols-rounded" style="color:#10b981;">check_circle</span> Manual Override used`;
-                        statusDiv.style.background = 'rgba(16, 185, 129, 0.1)';
-                        statusDiv.style.color = '#10b981';
-                        statusDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                    }
-                }
+            // 1. Safety check: Don't send if cart is empty
+            if (currentBill.length === 0) {
+                showToast("Cart is empty!");
+                return;
+            }
+
+            // 2. PREPARE DATA FIRST (Snapshot the cart before clearing)
+            const phone = document.getElementById('custPhone').value.trim();
+            const name = document.getElementById('custName').value.trim();
+            const itemsString = currentBill.map(i => `${i.qty}x ${i.name}`).join(", ");
+            const isParcel = document.getElementById('parcelToggle').checked;
             
-                playSuccessSound(); 
-                if(navigator.vibrate) navigator.vibrate([100, 50, 100]); 
-            
-                // 2. Prepare the payload
-                const phone = document.getElementById('custPhone').value.trim();
-                const name = document.getElementById('custName').value.trim();
-                const itemsString = currentBill.map(i => `${i.qty}x ${i.name}`).join(", ");
-                const isParcel = document.getElementById('parcelToggle').checked;
-            
-                const payload = { 
-                    orderId: "ORD" + Math.floor(Math.random() * 100000), 
-                    cart: [...currentBill], // Create a copy so it's not lost when cleared
-                    items: itemsString,
-                    parcelCharge: isParcel ? 5 : 0,
-                    total: finalTotalToPay, 
-                    tender: currentTender, 
-                    timestamp: new Date().toISOString(),
-                    voided: false
-                };
-            
-                // 3. Save to Local History
-                let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-                history.push(payload);
-                localStorage.setItem('orderHistory', JSON.stringify(history));
-            
-                // 4. Save Customer/Loyalty
-                if(phone) {
-                    if(!customers[phone]) customers[phone] = { name, visits: 0 };
-                    customers[phone].visits += 1;
-                    localStorage.setItem('crm_db', JSON.stringify(customers));
-                }
-            
-                // 5. SEND TO GOOGLE SHEETS (Using the exact method from your successful console test)
-                if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
-                    fetch(GOOGLE_WEB_APP_URL, { 
-                        method: 'POST', 
-                        mode: 'no-cors', // Matches your manual test
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify(payload) 
-                    }).catch(e => saveOffline(payload));
-                } else {
-                    saveOffline(payload);
-                }
-            
-                // 6. UI Updates
-                document.getElementById('qrSection').style.display = 'none';
-                document.getElementById('splitUI').style.display = 'none';
-                document.getElementById('paymentActions').style.display = 'none';
-                document.getElementById('successSection').style.display = 'block';
-                document.getElementById('waBtn').style.display = phone.length >= 10 ? 'flex' : 'none';
-                
-                // 7. FINALLY: Clear the cart AFTER data is saved/sent
+            const payload = { 
+                orderId: "ORD" + Math.floor(Math.random() * 100000), 
+                cart: [...currentBill], 
+                items: itemsString,
+                parcelCharge: isParcel ? 5 : 0,
+                total: finalTotalToPay, 
+                tender: currentTender, 
+                timestamp: new Date().toISOString(),
+                voided: false
+            };
+
+            // 3. SEND TO GOOGLE SHEETS (Immediate trigger)
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
+                fetch(GOOGLE_WEB_APP_URL, { 
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(payload) 
+                }).then(() => console.log("Order synced to Sheet"));
+            } else {
+                saveOffline(payload);
+            }
+
+            // 4. SAVE LOCALLY FOR ADMIN PANEL
+            let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+            history.push(payload);
+            localStorage.setItem('orderHistory', JSON.stringify(history));
+
+            if(phone) {
+                if(!customers[phone]) customers[phone] = { name, visits: 0 };
+                customers[phone].visits += 1;
+                localStorage.setItem('crm_db', JSON.stringify(customers));
+            }
+
+            // 5. UPDATE UI
+            playSuccessSound();
+            document.getElementById('qrSection').style.display = 'none';
+            document.getElementById('paymentActions').style.display = 'none';
+            document.getElementById('successSection').style.display = 'block';
+            document.getElementById('waBtn').style.display = phone.length >= 10 ? 'flex' : 'none';
+
+            // 6. CLEAR CART LAST (Wait 500ms to ensure everything processed)
+            setTimeout(() => {
                 currentBill = []; 
                 document.getElementById('parcelToggle').checked = false; 
                 clearDiscount();
                 document.getElementById('custPhone').value = ''; 
                 document.getElementById('custName').value = ''; 
-                document.getElementById('loyaltyBadge').style.display='none';
                 renderCart(); 
-            
-                setTimeout(() => { 
-                    if(document.getElementById('paymentModal').classList.contains('open')) closeAllPanels(); 
-                }, 4000);
-            }
+            }, 500);
+
+            // Auto-close modal after 4 seconds
+            setTimeout(() => { 
+                if(document.getElementById('paymentModal').classList.contains('open')) closeAllPanels(); 
+            }, 4000);
+        }
 
         function saveOffline(payload) {
             let offline = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
@@ -942,7 +929,7 @@
         async function handleOnlineSync() {
             document.getElementById('offlineBanner').style.display = 'none';
             let offline = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-            if (offline.length === 0 || GOOGLE_WEB_APP_URL === "__GOOGLE_WEB_APP_URL__") return;
+            if (offline.length === 0 || GOOGLE_WEB_APP_URL === "YOUR_GOOGLE_SCRIPT_URL_HERE") return;
             
             showToast(`Syncing ${offline.length} pending orders to cloud...`);
             let pending = [];
@@ -958,15 +945,15 @@
             const lastOrder = history[history.length-1];
             const phone = document.getElementById('custPhone').value || Object.keys(customers)[Object.keys(customers).length-1];
             
-            let text = `*SNACK ATTACK*\n\n`;
-            text += `_${lastOrder.orderId}_\n\n`;
+            let text = `SNACK ATTACK\n\n`;
+            text += `${lastOrder.orderId}\n\n`;
             
             lastOrder.cart.forEach(i => {
-                text += `　 ${i.name} ×${i.qty} — ₹${i.price*i.qty}\n`;
+                text += `${i.name} ×${i.qty} — ₹${i.price*i.qty}\n`;
             });
             
-            text += `\n*Total — ₹${lastOrder.total}*\n\n`;
-            text += `*Paid ✓*\n\n`;
+            text += `\nTotal — ₹${lastOrder.total}\n\n`;
+            text += `Paid ✓\n\n`;
             text += `Thanks for visiting.\n\n`;
             text += `Reach us:\nhttps://maps.app.goo.gl/btsT1HsHoYKt9gpS6`;
             
@@ -1079,7 +1066,7 @@
                     showToast(`Order ${currentVoidOrderId} Voided`);
                     
                     // 2. Sync the void status to Google Sheets Cloud
-                    if (navigator.onLine && GOOGLE_WEB_APP_URL !== "__GOOGLE_WEB_APP_URL__") {
+                    if (navigator.onLine && GOOGLE_WEB_APP_URL !== "YOUR_GOOGLE_SCRIPT_URL_HERE") {
                         fetch(GOOGLE_WEB_APP_URL, {
                             method: 'POST',
                             body: JSON.stringify({ 
