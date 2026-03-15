@@ -757,8 +757,12 @@
                     
                     // Auto-Repair Engine: Safely handles old 7-column sheets vs new 9-column sheets
                     dailyOrders = rawOrders.map(o => {
-                        // Check if 'total' is completely missing OR if 'tender' contains a valid number (e.g. 150).
-                        const isOldFormat = o.total === undefined || (!isNaN(parseFloat(o.tender)) && parseFloat(o.tender) > 0);
+                        const rawTotal = String(o.total || "").trim();
+                        const rawTender = String(o.tender || "").trim();
+                        const tenderAsNum = Number(rawTender.replace(/[^0-9.-]+/g, ""));
+                        
+                        // If 'total' is completely missing OR if 'tender' contains a valid number.
+                        const isOldFormat = o.total === undefined || (!isNaN(tenderAsNum) && tenderAsNum > 0 && rawTender !== "CASH" && rawTender !== "UPI" && rawTender !== "SPLIT");
                         
                         if (isOldFormat) {
                             return {
@@ -768,8 +772,8 @@
                                 customerPhone: "",
                                 items: o.customerName || "",   
                                 tender: o.customerPhone || "CASH", 
-                                parcelCharge: (o.items && o.items.toString().includes("Yes")) ? 5 : 0, 
-                                total: parseFloat(o.tender) || 0, // This locks the math in place. Never undefined.
+                                parcelCharge: (o.items && String(o.items).includes("Yes")) ? 5 : 0, 
+                                total: tenderAsNum || 0, // Locks the math in place. Never undefined.
                                 voided: false
                             };
                         }
@@ -780,9 +784,9 @@
                             customerName: o.customerName || "",
                             customerPhone: o.customerPhone || "",
                             items: o.items || "",
-                            tender: o.tender || "CASH",
-                            parcelCharge: parseFloat(o.parcelCharge) || 0,
-                            total: parseFloat(o.total) || 0,
+                            tender: rawTender || "CASH",
+                            parcelCharge: Number(String(o.parcelCharge).replace(/[^0-9.-]+/g, "")) || 0,
+                            total: Number(rawTotal.replace(/[^0-9.-]+/g, "")) || 0, // Guarantees a clean number
                             voided: !!o.voided
                         };
                     });
@@ -803,39 +807,44 @@
         function renderAdminDashboard(dailyOrders) {
             const valid = dailyOrders.filter(o => !o.voided);
 
-            document.getElementById('adminRev').innerText = "₹" + valid.reduce((s,o) => s + parseFloat(o.total || 0), 0);
+            // Safely calculate total with guaranteed numbers
+            const totalRev = valid.reduce((s,o) => s + (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0), 0);
+            document.getElementById('adminRev').innerText = "₹" + totalRev;
             document.getElementById('adminOrders').innerText = valid.length;
             
-            document.getElementById('adminOrderList').innerHTML = dailyOrders.slice().reverse().map(o => `
-                <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}; margin-bottom:10px;">
-                    <div>
-                        <b style="${o.voided?'text-decoration:line-through':''}">${o.orderId || "Unknown"}</b><br>
-                        <small>${o.items || ""}</small><br>
-                        ${o.customerPhone || o.customerName ? `<small style="color:var(--primary); font-weight:600;">${o.customerName || 'Customer'} (${o.customerPhone || ''})</small>` : ''}
-                        ${!o.voided?`<br><button onclick="promptVoid('${o.orderId}')" style="background:none; border:1px solid #ef4444; color:#ef4444; font-size:11px; padding:3px 8px; border-radius:4px; margin-top:8px; cursor:pointer;">Void Order</button>`:'<br><b style="color:#ef4444; font-size:11px; display:inline-block; margin-top:8px;">VOIDED</b>'}
+            document.getElementById('adminOrderList').innerHTML = dailyOrders.slice().reverse().map(o => {
+                const cleanTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
+                return `
+                    <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}; margin-bottom:10px;">
+                        <div>
+                            <b style="${o.voided?'text-decoration:line-through':''}">${o.orderId || "Unknown"}</b><br>
+                            <small>${o.items || ""}</small><br>
+                            ${o.customerPhone || o.customerName ? `<small style="color:var(--primary); font-weight:600;">${o.customerName || 'Customer'} (${o.customerPhone || ''})</small>` : ''}
+                            ${!o.voided?`<br><button onclick="promptVoid('${o.orderId}')" style="background:none; border:1px solid #ef4444; color:#ef4444; font-size:11px; padding:3px 8px; border-radius:4px; margin-top:8px; cursor:pointer;">Void Order</button>`:'<br><b style="color:#ef4444; font-size:11px; display:inline-block; margin-top:8px;">VOIDED</b>'}
+                        </div>
+                        <div style="text-align:right; font-weight:700; ${o.voided?'text-decoration:line-through':''}">
+                            <span style="color:var(--text-muted); font-size:0.8em; display:block; margin-bottom:4px;">${o.tender}</span>
+                            ₹${cleanTotal}
+                        </div>
                     </div>
-                    <div style="text-align:right; font-weight:700; ${o.voided?'text-decoration:line-through':''}">
-                        <span style="color:var(--text-muted); font-size:0.8em; display:block; margin-bottom:4px;">${o.tender}</span>
-                        ₹${o.total}
-                    </div>
-                </div>
-            `).join('') || '<div style="color:#666; text-align:center; padding:20px;">No orders found for this day.</div>';
+                `;
+            }).join('') || '<div style="color:#666; text-align:center; padding:20px;">No orders found for this day.</div>';
 
+            // Indestructible Regex Time Extractor
             let hours = new Array(24).fill(0); 
             valid.forEach(o => {
                 let hr = 0;
-                if(o.timestamp && o.timestamp.includes('T')) { 
-                    hr = new Date(o.timestamp).getHours(); 
-                } 
-                else if(o.timestamp) { 
-                    const match = o.timestamp.match(/(\d+):/); 
-                    if(match) {
-                        hr = parseInt(match[1], 10);
-                        if(o.timestamp.toUpperCase().includes('PM') && hr < 12) hr += 12;
-                        if(o.timestamp.toUpperCase().includes('AM') && hr === 12) hr = 0;
-                    }
+                const tsStr = String(o.timestamp || "");
+                const timeMatch = tsStr.match(/(\d{1,2}):\d{2}/);
+                
+                if (timeMatch) {
+                    hr = parseInt(timeMatch[1], 10);
+                    if (tsStr.toUpperCase().includes('PM') && hr < 12) hr += 12;
+                    if (tsStr.toUpperCase().includes('AM') && hr === 12) hr = 0;
                 }
-                hours[hr] += parseFloat(o.total || 0);
+                
+                const safeTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
+                hours[hr] += safeTotal;
             });
             
             // Format labels to 12 AM, 1 PM format etc
