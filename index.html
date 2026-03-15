@@ -849,74 +849,89 @@
             document.getElementById('qrCodeImg').src = qrUrl;
         }
 
-        async function processPayment(manualForce = false) {
-            clearInterval(webhookInterval);
-            if(manualForce) {
-                const statusDiv = document.getElementById('verifyStatus');
-                if(statusDiv) {
-                    statusDiv.innerHTML = `<span class="material-symbols-rounded" style="color:#10b981;">check_circle</span> Manual Override used`;
-                    statusDiv.style.background = 'rgba(16, 185, 129, 0.1)';
-                    statusDiv.style.color = '#10b981';
-                    statusDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+            async function processPayment(manualForce = false) {
+                clearInterval(webhookInterval);
+                
+                // 1. Check if bill is empty BEFORE doing anything
+                if (currentBill.length === 0) {
+                    showToast("Cart is already empty!");
+                    return;
                 }
+            
+                if(manualForce) {
+                    const statusDiv = document.getElementById('verifyStatus');
+                    if(statusDiv) {
+                        statusDiv.innerHTML = `<span class="material-symbols-rounded" style="color:#10b981;">check_circle</span> Manual Override used`;
+                        statusDiv.style.background = 'rgba(16, 185, 129, 0.1)';
+                        statusDiv.style.color = '#10b981';
+                        statusDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                    }
+                }
+            
+                playSuccessSound(); 
+                if(navigator.vibrate) navigator.vibrate([100, 50, 100]); 
+            
+                // 2. Prepare the payload
+                const phone = document.getElementById('custPhone').value.trim();
+                const name = document.getElementById('custName').value.trim();
+                const itemsString = currentBill.map(i => `${i.qty}x ${i.name}`).join(", ");
+                const isParcel = document.getElementById('parcelToggle').checked;
+            
+                const payload = { 
+                    orderId: "ORD" + Math.floor(Math.random() * 100000), 
+                    cart: [...currentBill], // Create a copy so it's not lost when cleared
+                    items: itemsString,
+                    parcelCharge: isParcel ? 5 : 0,
+                    total: finalTotalToPay, 
+                    tender: currentTender, 
+                    timestamp: new Date().toISOString(),
+                    voided: false
+                };
+            
+                // 3. Save to Local History
+                let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+                history.push(payload);
+                localStorage.setItem('orderHistory', JSON.stringify(history));
+            
+                // 4. Save Customer/Loyalty
+                if(phone) {
+                    if(!customers[phone]) customers[phone] = { name, visits: 0 };
+                    customers[phone].visits += 1;
+                    localStorage.setItem('crm_db', JSON.stringify(customers));
+                }
+            
+                // 5. SEND TO GOOGLE SHEETS (Using the exact method from your successful console test)
+                if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
+                    fetch(GOOGLE_WEB_APP_URL, { 
+                        method: 'POST', 
+                        mode: 'no-cors', // Matches your manual test
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(payload) 
+                    }).catch(e => saveOffline(payload));
+                } else {
+                    saveOffline(payload);
+                }
+            
+                // 6. UI Updates
+                document.getElementById('qrSection').style.display = 'none';
+                document.getElementById('splitUI').style.display = 'none';
+                document.getElementById('paymentActions').style.display = 'none';
+                document.getElementById('successSection').style.display = 'block';
+                document.getElementById('waBtn').style.display = phone.length >= 10 ? 'flex' : 'none';
+                
+                // 7. FINALLY: Clear the cart AFTER data is saved/sent
+                currentBill = []; 
+                document.getElementById('parcelToggle').checked = false; 
+                clearDiscount();
+                document.getElementById('custPhone').value = ''; 
+                document.getElementById('custName').value = ''; 
+                document.getElementById('loyaltyBadge').style.display='none';
+                renderCart(); 
+            
+                setTimeout(() => { 
+                    if(document.getElementById('paymentModal').classList.contains('open')) closeAllPanels(); 
+                }, 4000);
             }
-
-            playSuccessSound(); if(navigator.vibrate) navigator.vibrate([100, 50, 100]); 
-            
-            // Save Customer / CRM
-            const phone = document.getElementById('custPhone').value.trim();
-            const name = document.getElementById('custName').value.trim();
-            if(phone) {
-                if(!customers[phone]) customers[phone] = { name, visits: 0 };
-                customers[phone].visits += 1;
-                localStorage.setItem('crm_db', JSON.stringify(customers));
-            }
-
-            // Save Order to Admin History
-            let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            
-            // Generate items string for display
-            const itemsString = currentBill.map(i => `${i.qty}x ${i.name}`).join(", ");
-            const isParcel = document.getElementById('parcelToggle').checked;
-            
-            const payload = { 
-                orderId: "ORD" + Math.floor(Math.random() * 100000), 
-                cart: currentBill, 
-                items: itemsString,
-                parcelCharge: isParcel ? 5 : 0,
-                total: finalTotalToPay, 
-                tender: currentTender, 
-                timestamp: new Date().toISOString(),
-                voided: false
-            };
-
-            history.push(payload);
-            localStorage.setItem('orderHistory', JSON.stringify(history));
-
-            // Network Sync
-            if (navigator.onLine && GOOGLE_WEB_APP_URL !== "__GOOGLE_WEB_APP_URL__") {
-                fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) }).catch(e => saveOffline(payload));
-            } else {
-                saveOffline(payload);
-            }
-
-            // Switch to Success UI
-            document.getElementById('qrSection').style.display = 'none';
-            document.getElementById('splitUI').style.display = 'none';
-            document.getElementById('paymentActions').style.display = 'none';
-            document.getElementById('successSection').style.display = 'block';
-            
-            // Hide WhatsApp button if no phone
-            document.getElementById('waBtn').style.display = phone.length >= 10 ? 'flex' : 'none';
-            
-            // Clear cart behind the scenes
-            currentBill = []; document.getElementById('parcelToggle').checked = false; clearDiscount();
-            document.getElementById('custPhone').value = ''; document.getElementById('custName').value = ''; document.getElementById('loyaltyBadge').style.display='none';
-            renderCart(); 
-
-            // Auto close after 4s if they don't click WA receipt
-            setTimeout(() => { if(document.getElementById('paymentModal').classList.contains('open')) closeAllPanels(); }, 4000);
-        }
 
         function saveOffline(payload) {
             let offline = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
