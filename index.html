@@ -51,7 +51,9 @@
             background-image: radial-gradient(circle at 50% 0%, rgba(255, 119, 0, 0.08) 0%, transparent 60%); 
             color: var(--text-main); 
             margin: 0; padding: 0; 
-            display: flex; height: 100dvh; 
+            display: flex; 
+            height: 100vh;
+            height: 100dvh; 
             overflow: hidden; font-size: 15px; 
         }
 
@@ -65,13 +67,14 @@
             flex-direction: column; 
             overflow: hidden; 
             position: relative; 
+            height: 100vh;
             height: 100dvh; 
         }
 
         .items-scroll { 
             flex: 1; 
-            /* Massive 200px bottom padding fixes the mobile cutoff issue */
-            padding: 10px 20px 200px; 
+            /* Massive 250px bottom padding fixes the mobile cutoff issue */
+            padding: 10px 20px 250px !important; 
             overflow-y: auto; 
             -webkit-overflow-scrolling: touch; 
         }
@@ -93,7 +96,7 @@
 
         .category-section { margin-bottom: 32px; animation: staggerFade 0.4s ease-out backwards; }
         /* Extra margin for the last category to ensure it scrolls above the FAB */
-        .category-section:last-child { margin-bottom: 100px; }
+        .category-section:last-child { margin-bottom: 150px !important; }
         
         .category-section-title { font-size: 1.25em; margin-bottom: 16px; color: var(--primary); display: flex; align-items: center; gap: 12px; }
         .category-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
@@ -379,6 +382,9 @@
                 { name: "Cheesy Fries", price: 59 }, { name: "Veg Momos", price: 49 },
                 { name: "Chicken Momos", price: 59 }, { name: "Corn & Cheese Nuggets", price: 49 }
             ],
+            "Loaded Chips": [
+                { name: "Veg Loaded Chips", price: 40 }, { name: "Chicken Loaded Chips", price: 45 }
+            ],
             "Sandwiches": [
                 { name: "Veg Sandwich", price: 35 }, { name: "Corn & Cheese", price: 40 },
                 { name: "Paneer Sandwich", price: 45 }, { name: "Chicken Sandwich", price: 45 }
@@ -389,7 +395,7 @@
             ],
             "Salad Varities": [
                 { name: "Veg Salad", price: 29 }, { name: "Egg Salad", price: 35 },
-                { name: "Chicken Salad", price: 49 }, { name: "Sprouts Salad", price: 29 }
+                { name: "Chicken Salad", price: 49 }, { name: "Sprouts Salad", price: 29 }, { name: "Watermelon", price: 20 }
             ],
             "Steemed Options": [
                 { name: "Sprouts", price: 19 }, { name: "Peanuts", price: 19 },
@@ -403,7 +409,7 @@
         const upsellRules = [{ trigger: "Chicken Sandwich", suggest: "Virjin Mojito", text: "🔥 Suggest: Virjin Mojito bundle (+₹49)" }];
 
         let currentBill = [];
-        let savedMenu = JSON.parse(localStorage.getItem('snackMenu_v8')) || defaultMenu;
+        let savedMenu = JSON.parse(localStorage.getItem('snackMenu_v9')) || defaultMenu;
         let activeCategory = "All";
         let activeDiscount = { type: 'none', val: 0 };
         let currentTender = 'upi';
@@ -429,7 +435,7 @@
                 const cloud = await res.json();
                 if(Object.keys(cloud).length > 0 && !cloud.error) {
                     savedMenu = cloud;
-                    localStorage.setItem('snackMenu_v8', JSON.stringify(savedMenu));
+                    localStorage.setItem('snackMenu_v9', JSON.stringify(savedMenu));
                     populateCategoryList();
                     renderChips(); renderMenu(activeCategory);
                 }
@@ -453,7 +459,7 @@
             // 1. Update Locally
             if(!savedMenu[cat]) savedMenu[cat] = [];
             savedMenu[cat].push({name, price});
-            localStorage.setItem('snackMenu_v8', JSON.stringify(savedMenu));
+            localStorage.setItem('snackMenu_v9', JSON.stringify(savedMenu));
             
             document.getElementById('newItemName').value = '';
             document.getElementById('newItemPrice').value = '';
@@ -748,8 +754,10 @@
                     
                     // Auto-Repair Engine: Safely handles old 7-column sheets vs new 9-column sheets
                     dailyOrders = rawOrders.map(o => {
-                        const phoneStr = (o.customerPhone || "").toString().toUpperCase();
-                        if (phoneStr === "CASH" || phoneStr === "UPI" || phoneStr === "SPLIT" || o.total === undefined || o.total === "" || o.total === null) {
+                        // If 'total' is completely missing OR if 'tender' contains a valid number (e.g. 150), it is definitely the old 7-column format
+                        const isOldFormat = !o.total || !isNaN(parseFloat(o.tender));
+                        
+                        if (isOldFormat) {
                             return {
                                 timestamp: o.timestamp, 
                                 orderId: o.orderId,
@@ -758,11 +766,16 @@
                                 items: o.customerName,   // Column shift fix
                                 tender: o.customerPhone, // Column shift fix
                                 parcelCharge: (o.items && o.items.toString().includes("Yes")) ? 5 : 0, 
-                                total: parseFloat(o.tender) || 0, // Column shift fix
+                                total: parseFloat(o.tender) || parseFloat(o.total) || 0, // Strict fallback to number
                                 voided: false
                             };
                         }
-                        return o;
+                        
+                        // If it's the new 9-column format, just return it, but ensure total is a valid number.
+                        return {
+                            ...o,
+                            total: parseFloat(o.total) || 0
+                        };
                     });
                 } catch(e) {
                     dailyOrders = getLocalOrdersForDate(targetDateObj);
@@ -781,14 +794,14 @@
         function renderAdminDashboard(dailyOrders) {
             const valid = dailyOrders.filter(o => !o.voided);
 
-            document.getElementById('adminRev').innerText = "₹" + valid.reduce((s,o) => s + parseInt(o.total || 0), 0);
+            document.getElementById('adminRev').innerText = "₹" + valid.reduce((s,o) => s + parseFloat(o.total || 0), 0);
             document.getElementById('adminOrders').innerText = valid.length;
             
             document.getElementById('adminOrderList').innerHTML = dailyOrders.slice().reverse().map(o => `
                 <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}">
                     <div>
-                        <b style="${o.voided?'text-decoration:line-through':''}">${o.orderId}</b><br>
-                        <small>${o.items}</small><br>
+                        <b style="${o.voided?'text-decoration:line-through':''}">${o.orderId || "Unknown"}</b><br>
+                        <small>${o.items || ""}</small><br>
                         ${o.customerPhone || o.customerName ? `<small style="color:var(--primary); font-weight:600;">${o.customerName || 'Customer'} (${o.customerPhone || ''})</small>` : ''}
                         ${!o.voided?`<br><button onclick="promptVoid('${o.orderId}')" style="background:none; border:1px solid #ef4444; color:#ef4444; font-size:11px; padding:3px 8px; border-radius:4px; margin-top:8px; cursor:pointer;">Void Order</button>`:'<br><b style="color:#ef4444; font-size:11px; display:inline-block; margin-top:8px;">VOIDED</b>'}
                     </div>
@@ -801,7 +814,7 @@
                 let hr = 0;
                 if(o.timestamp && o.timestamp.includes('T')) { hr = new Date(o.timestamp).getHours(); } 
                 else if(o.timestamp) { const match = o.timestamp.match(/(\d+):/); if(match) hr = parseInt(match[1]); }
-                hours[hr] += parseInt(o.total || 0);
+                hours[hr] += parseFloat(o.total || 0);
             });
             if(salesChartObj) salesChartObj.destroy();
             salesChartObj = new Chart(document.getElementById('salesChart'), { type:'line', data:{ labels:hours.map((_,i)=>i+':00'), datasets:[{label:'Revenue/Hr', data:hours, borderColor:'#ff7700', backgroundColor:'rgba(255,119,0,0.1)', fill:true, tension:0.4}] }, options:{maintainAspectRatio:false} });
