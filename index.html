@@ -361,7 +361,6 @@
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
 
-        // Sound Engine
         function playSuccessSound() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -384,16 +383,13 @@
                 { name: "Veg Sandwich", price: 35 }, { name: "Corn & Cheese", price: 40 },
                 { name: "Paneer Sandwich", price: 45 }, { name: "Chicken Sandwich", price: 45 }
             ],
-            "Loaded Chips": [
-                { name: "Veg Loaded Chips", price: 40 }, { name: "Chicken Loaded Chips", price: 45 }
-            ],
             "Mojitos": [
                 { name: "Virjin Mojito", price: 49 }, { name: "Lime And Mint", price: 49 },
                 { name: "Blue Curacao", price: 49 }, { name: "Strawberry", price: 49 }
             ],
             "Salad Varities": [
-                { name: "Veg Salad", price: 29 }, { name: "Egg Salad", price: 35 }, 
-                { name: "Chicken Salad", price: 49 }, { name: "Sprouts Salad", price: 29 }, { name: "Watermelon", price: 20 }
+                { name: "Veg Salad", price: 29 }, { name: "Egg Salad", price: 35 },
+                { name: "Chicken Salad", price: 49 }, { name: "Sprouts Salad", price: 29 }
             ],
             "Steemed Options": [
                 { name: "Sprouts", price: 19 }, { name: "Peanuts", price: 19 },
@@ -752,14 +748,17 @@
                     
                     // Auto-Repair Engine: Safely handles old 7-column sheets vs new 9-column sheets
                     dailyOrders = rawOrders.map(o => {
-                        if (o.total === undefined || o.total === "" || o.total === null) {
+                        const phoneStr = (o.customerPhone || "").toString().toUpperCase();
+                        if (phoneStr === "CASH" || phoneStr === "UPI" || phoneStr === "SPLIT" || o.total === undefined || o.total === "" || o.total === null) {
                             return {
-                                timestamp: o.timestamp, orderId: o.orderId,
-                                customerName: "", customerPhone: "",
+                                timestamp: o.timestamp, 
+                                orderId: o.orderId,
+                                customerName: "", 
+                                customerPhone: "",
                                 items: o.customerName,   // Column shift fix
                                 tender: o.customerPhone, // Column shift fix
-                                parcelCharge: o.items === "Yes (₹5)" ? 5 : 0, 
-                                total: o.tender,         // Column shift fix
+                                parcelCharge: (o.items && o.items.toString().includes("Yes")) ? 5 : 0, 
+                                total: parseFloat(o.tender) || 0, // Column shift fix
                                 voided: false
                             };
                         }
