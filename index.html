@@ -451,7 +451,11 @@
         let currentTender = 'upi';
         let finalTotalToPay = 0;
         let currentVoidOrderId = null;
+        
+        // Critical tracking to remember the original timestamp during edit updates
         let editingOrderId = null; 
+        let editingOrderTimestamp = null; 
+
         let customers = JSON.parse(localStorage.getItem('crm_db')) || {};
         let salesChartObj, itemsChartObj;
         let webhookInterval;
@@ -732,14 +736,16 @@
                 action: editingOrderId ? 'updateOrder' : 'saveOrder', 
                 orderId: orderId, customerName: name, customerPhone: phone, 
                 total: finalTotalToPay, tender: currentTender, 
-                timestamp: new Date().toISOString(), cart: [...currentBill], 
+                // Keep exact original timestamp if editing to prevent row-hopping
+                timestamp: editingOrderTimestamp || new Date().toISOString(), 
+                cart: [...currentBill], 
                 items: itemsString, parcelCharge: isParcel ? 5 : 0, voided: false 
             };
             
             let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
             if (editingOrderId) {
                 const idx = history.findIndex(o => o.orderId === editingOrderId);
-                if(idx !== -1) { payload.timestamp = history[idx].timestamp; history[idx] = payload; } 
+                if(idx !== -1) { history[idx] = payload; } 
                 else { history.push(payload); }
             } else {
                 history.push(payload);
@@ -768,7 +774,8 @@
             setTimeout(() => { 
                 currentBill = []; document.getElementById('parcelToggle').checked = false; clearDiscount();
                 document.getElementById('custName').value = ""; document.getElementById('custPhone').value = "";
-                editingOrderId = null; renderCart(); renderMenu(activeCategory);
+                editingOrderId = null; editingOrderTimestamp = null;
+                renderCart(); renderMenu(activeCategory);
                 if(document.getElementById('paymentModal').classList.contains('open')) closeAllPanels();
                 if(document.getElementById('adminPanel').classList.contains('open')) loadAdminData();
             }, 3000);
@@ -966,6 +973,10 @@
         // --- EDIT ORDER LOGIC ---
         async function editOrder(orderId) {
             showToast("Fetching order from Cloud...");
+            
+            // Close all panels FIRST to clear previous UI states cleanly
+            closeAllPanels(); 
+            
             let order = null;
             
             if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
@@ -983,12 +994,12 @@
             
             if (!order) { showToast("Order missing from memory & cloud."); return; }
             
-            order = normalizeOrderData(order); // Safe normalization
+            order = normalizeOrderData(order); 
             
-            // CRITICAL FIX: Close all panels BEFORE setting state to prevent accidental wipe
-            closeAllPanels(); 
-            
+            // Critical fix for updating: Cache the original timestamp exactly so Google Script overwrites the old row
             editingOrderId = order.orderId;
+            editingOrderTimestamp = order.timestamp;
+            
             currentBill = order.cart && order.cart.length > 0 ? JSON.parse(JSON.stringify(order.cart)) : parseItemsToCart(order.items);
             currentTender = (order.tender || 'upi').toLowerCase();
             
@@ -1018,7 +1029,7 @@
 
             if (!order) { showToast("Order missing from memory & cloud."); return; }
 
-            order = normalizeOrderData(order); // Safe normalization
+            order = normalizeOrderData(order); 
             
             const cartToUse = order.cart && order.cart.length > 0 ? order.cart : parseItemsToCart(order.items);
             const receiptText = generateReceipt(order.orderId, cartToUse, parseFloat(order.total), order.tender, order.timestamp);
@@ -1036,43 +1047,54 @@
             
             let displayDate = timestamp;
             try {
-                let dObj = new Date(timestamp);
-                if (dObj.toString() !== "Invalid Date") {
-                    const dd = String(dObj.getDate()).padStart(2, '0');
-                    const mm = String(dObj.getMonth() + 1).padStart(2, '0');
-                    const yyyy = dObj.getFullYear();
-                    let h = dObj.getHours();
-                    const min = String(dObj.getMinutes()).padStart(2, '0');
-                    const ampm = h >= 12 ? 'pm' : 'am';
-                    h = h % 12;
-                    h = h ? h : 12; 
-                    displayDate = `${dd}/${mm}/${yyyy} - ${String(h).padStart(2,'0')}.${min} ${ampm}`;
-                } else {
-                    const tsStr = String(timestamp);
-                    const parts = tsStr.split(' ');
-                    if (parts.length >= 2) {
-                        const dateParts = parts[0].split('.');
+                // Strict Date Formatter (dd/mm/yyyy - hh.mm am/pm)
+                const tsStr = String(timestamp);
+                let dd="00", mm="00", yy="0000", hh="12", min="00", ampm="am";
+                
+                // Try to parse if it is the direct Google Sheets String (e.g. "17.03.26 14:05:00")
+                const parts = tsStr.split(' ');
+                if (parts.length >= 2 && parts[0].includes('.')) {
+                    const dateParts = parts[0].split('.');
+                    if (dateParts.length === 3) {
+                        dd = dateParts[0].padStart(2, '0');
+                        mm = dateParts[1].padStart(2, '0');
+                        yy = dateParts[2].length === 2 ? "20" + dateParts[2] : dateParts[2];
+                        
                         const timeStr = parts.slice(1).join(' ');
-                        let hh = "12", min = "00", ampm = "am";
-                        const timeMatch = timeStr.match(/(\d+):(\d+)(?::(\d+))?\s*(AM|PM|am|pm)?/i);
+                        const timeMatch = timeStr.match(/(\d+):(\d+)/);
                         if (timeMatch) {
                             let h = parseInt(timeMatch[1], 10);
                             min = timeMatch[2].padStart(2, '0');
-                            if (timeMatch[4]) {
-                                ampm = timeMatch[4].toLowerCase();
-                            } else {
-                                ampm = h >= 12 ? 'pm' : 'am';
-                                h = h % 12;
-                                h = h ? h : 12;
+                            
+                            // Check if string contains am/pm
+                            if (timeStr.toLowerCase().includes('pm') || timeStr.toLowerCase().includes('am')) {
+                                ampm = timeStr.toLowerCase().includes('pm') ? 'pm' : 'am';
+                                if (ampm === 'pm' && h < 12) h += 12; // Standardize to 24h for math
+                                if (ampm === 'am' && h === 12) h = 0;
                             }
+                            
+                            // Convert standard 24h to 12h am/pm format for display
+                            ampm = h >= 12 ? 'pm' : 'am';
+                            h = h % 12;
+                            h = h ? h : 12; 
                             hh = String(h).padStart(2, '0');
                         }
-                        if (dateParts.length === 3) {
-                            const yy = dateParts[2].length === 2 ? "20" + dateParts[2] : dateParts[2];
-                            displayDate = `${dateParts[0].padStart(2,'0')}/${dateParts[1].padStart(2,'0')}/${yy} - ${hh}.${min} ${ampm}`;
-                        } else {
-                            displayDate = tsStr;
-                        }
+                        displayDate = `${dd}/${mm}/${yy} - ${hh}.${min} ${ampm}`;
+                    }
+                } 
+                // Fallback to Standard Javascript Date
+                else {
+                    let dObj = new Date(timestamp);
+                    if (dObj.toString() !== "Invalid Date") {
+                        dd = String(dObj.getDate()).padStart(2, '0');
+                        mm = String(dObj.getMonth() + 1).padStart(2, '0');
+                        yy = dObj.getFullYear();
+                        let h = dObj.getHours();
+                        min = String(dObj.getMinutes()).padStart(2, '0');
+                        ampm = h >= 12 ? 'pm' : 'am';
+                        h = h % 12;
+                        h = h ? h : 12; 
+                        displayDate = `${dd}/${mm}/${yy} - ${String(h).padStart(2,'0')}.${min} ${ampm}`;
                     }
                 }
             } catch(e) {}
@@ -1255,9 +1277,9 @@
         function openCart() { document.getElementById('cartPanel').classList.add('open'); document.getElementById('overlayBackdrop').classList.add('open'); renderCart(); }
         
         function closeAllPanels() { 
-            // If we closed panels while editing, reset to standard mode
             if(editingOrderId && !document.getElementById('cartPanel').classList.contains('open')) {
-                editingOrderId = null; currentBill = []; renderMenu(activeCategory);
+                editingOrderId = null; editingOrderTimestamp = null;
+                currentBill = []; renderMenu(activeCategory);
                 document.getElementById('custName').value = ""; document.getElementById('custPhone').value = "";
                 document.getElementById('parcelToggle').checked = false;
                 clearDiscount();
