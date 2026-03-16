@@ -142,7 +142,6 @@
 
         .admin-content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
         
-        /* Updated Admin Tabs for dynamic auto-resizing and wrapping */
         .admin-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 15px; width: 100%; }
         .admin-tab { flex: 1; padding: 12px 8px; text-align: center; color: var(--text-muted); cursor: pointer; font-weight: 600; position: relative; white-space: normal; font-size: 0.95em; line-height: 1.3; display: flex; align-items: center; justify-content: center; }
         .admin-tab.active { color: var(--primary); }
@@ -168,12 +167,10 @@
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .spinner { animation: spin 1s linear infinite; }
 
-        /* Prep List Forecast UI */
         .prep-list { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
         .prep-item { display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); }
         .prep-item-qty { font-size: 1.4em; font-weight: 800; color: var(--primary); background: rgba(255,119,0,0.1); padding: 6px 16px; border-radius: var(--radius-pill); }
 
-        /* Print Specific CSS */
         @media print {
             body * { visibility: hidden; }
             #invoiceModal, #invoiceModal * { visibility: visible; }
@@ -396,7 +393,7 @@
 
     <script>
         // CONFIG & SECRETS
-        const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
+        const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxtnh5u-MLl9FkePMabKH8PD2QJTbpx04Ha7r1rbrVYZAMYx-Olh7iWU2DrQwPUOqsm/exec"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
 
         function playSuccessSound() {
@@ -452,7 +449,6 @@
         let finalTotalToPay = 0;
         let currentVoidOrderId = null;
         
-        // Critical tracking to remember the original timestamp during edit updates
         let editingOrderId = null; 
         let editingOrderTimestamp = null; 
 
@@ -736,7 +732,6 @@
                 action: editingOrderId ? 'updateOrder' : 'saveOrder', 
                 orderId: orderId, customerName: name, customerPhone: phone, 
                 total: finalTotalToPay, tender: currentTender, 
-                // Keep exact original timestamp if editing to prevent row-hopping
                 timestamp: editingOrderTimestamp || new Date().toISOString(), 
                 cart: [...currentBill], 
                 items: itemsString, parcelCharge: isParcel ? 5 : 0, voided: false 
@@ -829,25 +824,41 @@
         /** --- CLOUD FIRST ADMIN DASHBOARD --- */
         function normalizeOrderData(o) {
             if (!o) return null;
+            
             const rawTotal = String(o.total || "").trim();
             const rawTender = String(o.tender || "").trim();
             const tenderAsNum = Number(rawTender.replace(/[^0-9.-]+/g, ""));
+            const isOldFormatByTender = (!isNaN(tenderAsNum) && tenderAsNum > 0 && !["CASH", "UPI", "SPLIT"].includes(rawTender.toUpperCase()));
             
-            // Check if it's the old 7-column format
-            const isOldFormat = o.total === undefined || (!isNaN(tenderAsNum) && tenderAsNum > 0 && rawTender !== "CASH" && rawTender !== "UPI" && rawTender !== "SPLIT");
-            
-            if (isOldFormat) {
+            if (o.total === undefined || o.total === null || o.total === "" || isOldFormatByTender) {
+                let trueTotal = parseFloat(String(o.items || "0").replace(/[^0-9.-]+/g, "")) || 0;
+                if (isOldFormatByTender) trueTotal = tenderAsNum;
+                
+                const trueItems = String(o.customerName || "");
+                const trueTender = String(o.customerPhone || "CASH");
+                
                 return {
-                    timestamp: o.timestamp, orderId: o.orderId, customerName: "", customerPhone: "",
-                    items: o.customerName || "", tender: o.customerPhone || "CASH", 
-                    parcelCharge: (o.items && String(o.items).includes("Yes")) ? 5 : 0, 
-                    total: tenderAsNum || 0, voided: false, cart: parseItemsToCart(o.customerName || "")
+                    timestamp: o.timestamp,
+                    orderId: o.orderId,
+                    customerName: "",
+                    customerPhone: "",
+                    items: trueItems,
+                    tender: trueTender.toUpperCase(),
+                    parcelCharge: trueItems.includes("Yes") ? 5 : 0,
+                    total: trueTotal,
+                    voided: String(o.tender || "").toUpperCase() === "VOIDED" || !!o.voided,
+                    cart: parseItemsToCart(trueItems)
                 };
             }
             
             return {
-                ...o, tender: rawTender || "CASH", parcelCharge: Number(String(o.parcelCharge).replace(/[^0-9.-]+/g, "")) || 0,
-                total: Number(rawTotal.replace(/[^0-9.-]+/g, "")) || 0, voided: !!o.voided, cart: o.cart || parseItemsToCart(o.items || "")
+                timestamp: o.timestamp, orderId: o.orderId, 
+                customerName: String(o.customerName || ""), customerPhone: String(o.customerPhone || ""),
+                items: String(o.items || ""), tender: String(o.tender || "CASH").toUpperCase(), 
+                parcelCharge: parseFloat(String(o.parcelCharge || "0").replace(/[^0-9.-]+/g, "")) || 0,
+                total: parseFloat(rawTotal.replace(/[^0-9.-]+/g, "")) || 0, 
+                voided: !!o.voided || String(o.tender || "").toUpperCase() === "VOIDED", 
+                cart: o.cart || parseItemsToCart(String(o.items || ""))
             };
         }
 
@@ -878,7 +889,7 @@
 
         function parseItemsToCart(itemsStr) {
             let tempCart = [];
-            itemsStr.split(',').forEach(part => {
+            String(itemsStr || "").split(',').forEach(part => {
                 const match = part.trim().match(/^(\d+)x\s+(.+)$/);
                 if(match) {
                     let foundPrice = 0;
@@ -889,9 +900,25 @@
             return tempCart;
         }
 
+        // UPDATED: Extremely robust local order loading using the exact Date string format match
         function getLocalOrdersForDate(targetDateObj) {
             const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            return history.filter(o => new Date(o.timestamp).toDateString() === targetDateObj.toDateString());
+            const targetDd = String(targetDateObj.getDate()).padStart(2, '0');
+            const targetMm = String(targetDateObj.getMonth() + 1).padStart(2, '0');
+            const targetYy = String(targetDateObj.getFullYear()).slice(-2);
+            const targetStr = `${targetDd}.${targetMm}.${targetYy}`;
+
+            return history.filter(o => {
+                // If it matches our custom string format from the backend
+                if (o.timestamp && String(o.timestamp).startsWith(targetStr)) return true;
+                
+                // Fallback for standard ISO strings (e.g. freshly saved local offline orders)
+                let dObj = new Date(o.timestamp);
+                if (dObj.toString() !== "Invalid Date") {
+                    return dObj.toDateString() === targetDateObj.toDateString();
+                }
+                return false;
+            });
         }
 
         function renderAdminDashboard(dailyOrders) {
@@ -974,7 +1001,7 @@
         async function editOrder(orderId) {
             showToast("Fetching order from Cloud...");
             
-            // Close all panels FIRST to clear previous UI states cleanly
+            // Close all panels BEFORE rewriting the state so that the cart UI completely refreshes
             closeAllPanels(); 
             
             let order = null;
@@ -996,7 +1023,6 @@
             
             order = normalizeOrderData(order); 
             
-            // Critical fix for updating: Cache the original timestamp exactly so Google Script overwrites the old row
             editingOrderId = order.orderId;
             editingOrderTimestamp = order.timestamp;
             
@@ -1047,11 +1073,10 @@
             
             let displayDate = timestamp;
             try {
-                // Strict Date Formatter (dd/mm/yyyy - hh.mm am/pm)
                 const tsStr = String(timestamp);
                 let dd="00", mm="00", yy="0000", hh="12", min="00", ampm="am";
                 
-                // Try to parse if it is the direct Google Sheets String (e.g. "17.03.26 14:05:00")
+                // Standardize "17.03.26 14:05:00" formats generated by Google Sheets
                 const parts = tsStr.split(' ');
                 if (parts.length >= 2 && parts[0].includes('.')) {
                     const dateParts = parts[0].split('.');
@@ -1066,23 +1091,20 @@
                             let h = parseInt(timeMatch[1], 10);
                             min = timeMatch[2].padStart(2, '0');
                             
-                            // Check if string contains am/pm
                             if (timeStr.toLowerCase().includes('pm') || timeStr.toLowerCase().includes('am')) {
                                 ampm = timeStr.toLowerCase().includes('pm') ? 'pm' : 'am';
-                                if (ampm === 'pm' && h < 12) h += 12; // Standardize to 24h for math
+                                if (ampm === 'pm' && h < 12) h += 12; 
                                 if (ampm === 'am' && h === 12) h = 0;
                             }
                             
-                            // Convert standard 24h to 12h am/pm format for display
                             ampm = h >= 12 ? 'pm' : 'am';
-                            h = h % 12;
-                            h = h ? h : 12; 
+                            h = h % 12; h = h ? h : 12; 
                             hh = String(h).padStart(2, '0');
                         }
                         displayDate = `${dd}/${mm}/${yy} - ${hh}.${min} ${ampm}`;
                     }
                 } 
-                // Fallback to Standard Javascript Date
+                // Fallback Date Object processing
                 else {
                     let dObj = new Date(timestamp);
                     if (dObj.toString() !== "Invalid Date") {
@@ -1092,8 +1114,7 @@
                         let h = dObj.getHours();
                         min = String(dObj.getMinutes()).padStart(2, '0');
                         ampm = h >= 12 ? 'pm' : 'am';
-                        h = h % 12;
-                        h = h ? h : 12; 
+                        h = h % 12; h = h ? h : 12; 
                         displayDate = `${dd}/${mm}/${yy} - ${String(h).padStart(2,'0')}.${min} ${ampm}`;
                     }
                 }
@@ -1277,6 +1298,7 @@
         function openCart() { document.getElementById('cartPanel').classList.add('open'); document.getElementById('overlayBackdrop').classList.add('open'); renderCart(); }
         
         function closeAllPanels() { 
+            // If we closed panels while editing, reset to standard mode
             if(editingOrderId && !document.getElementById('cartPanel').classList.contains('open')) {
                 editingOrderId = null; editingOrderTimestamp = null;
                 currentBill = []; renderMenu(activeCategory);
