@@ -141,8 +141,10 @@
         .qr-box img { width: 100%; height: 100%; }
 
         .admin-content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
-        .admin-tabs { display: flex; border-bottom: 1px solid var(--border); gap: 10px; margin-bottom: 10px; overflow-x:auto; white-space:nowrap; }
-        .admin-tab { padding: 10px 0; color: var(--text-muted); cursor: pointer; font-weight: 600; position: relative; }
+        
+        /* Updated Admin Tabs for dynamic auto-resizing and wrapping */
+        .admin-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 15px; width: 100%; }
+        .admin-tab { flex: 1; padding: 12px 8px; text-align: center; color: var(--text-muted); cursor: pointer; font-weight: 600; position: relative; white-space: normal; font-size: 0.95em; line-height: 1.3; display: flex; align-items: center; justify-content: center; }
         .admin-tab.active { color: var(--primary); }
         .admin-tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--primary); }
         
@@ -443,7 +445,7 @@
         const upsellRules = [{ trigger: "Chicken Sandwich", suggest: "Virjin Mojito", text: "🔥 Suggest: Virjin Mojito bundle (+₹49)" }];
 
         let currentBill = [];
-        let savedMenu = JSON.parse(localStorage.getItem('snackMenu_v13')) || defaultMenu;
+        let savedMenu = JSON.parse(localStorage.getItem('snackMenu_v14')) || defaultMenu;
         let activeCategory = "All";
         let activeDiscount = { type: 'none', val: 0 };
         let currentTender = 'upi';
@@ -481,7 +483,7 @@
                             }
                         });
                     });
-                    localStorage.setItem('snackMenu_v13', JSON.stringify(savedMenu));
+                    localStorage.setItem('snackMenu_v14', JSON.stringify(savedMenu));
                     populateCategoryList();
                     renderChips(); renderMenu(activeCategory);
                 }
@@ -506,7 +508,7 @@
             const existingItem = savedMenu[cat].find(i => i.name.toLowerCase() === name.toLowerCase());
             if (existingItem) { existingItem.price = price; } else { savedMenu[cat].push({name, price}); }
             
-            localStorage.setItem('snackMenu_v13', JSON.stringify(savedMenu));
+            localStorage.setItem('snackMenu_v14', JSON.stringify(savedMenu));
             document.getElementById('newItemName').value = '';
             document.getElementById('newItemPrice').value = '';
             document.getElementById('editMenuModal').classList.remove('open');
@@ -815,7 +817,9 @@
             closeAllPanels();
         }
 
-        // --- DASHBOARD / ADMIN ---
+        function cancelPayment() { stopWebhookPolling(); document.getElementById('paymentModal').classList.remove('open'); document.getElementById('overlayBackdrop').classList.remove('open'); }
+
+        /** --- CLOUD FIRST ADMIN DASHBOARD --- */
         async function loadAdminData() {
             const dateVal = document.getElementById('adminDatePicker').value;
             const targetDateObj = dateVal ? new Date(dateVal) : new Date();
@@ -1193,6 +1197,7 @@
         function openCart() { document.getElementById('cartPanel').classList.add('open'); document.getElementById('overlayBackdrop').classList.add('open'); renderCart(); }
         
         function closeAllPanels() { 
+            // If we closed panels while editing, reset to standard mode
             if(editingOrderId && !document.getElementById('cartPanel').classList.contains('open')) {
                 editingOrderId = null; currentBill = []; renderMenu(activeCategory);
                 document.getElementById('custName').value = ""; document.getElementById('custPhone').value = "";
