@@ -820,6 +820,30 @@
         function cancelPayment() { stopWebhookPolling(); document.getElementById('paymentModal').classList.remove('open'); document.getElementById('overlayBackdrop').classList.remove('open'); }
 
         /** --- CLOUD FIRST ADMIN DASHBOARD --- */
+        function normalizeOrderData(o) {
+            if (!o) return null;
+            const rawTotal = String(o.total || "").trim();
+            const rawTender = String(o.tender || "").trim();
+            const tenderAsNum = Number(rawTender.replace(/[^0-9.-]+/g, ""));
+            
+            // Check if it's the old 7-column format
+            const isOldFormat = o.total === undefined || (!isNaN(tenderAsNum) && tenderAsNum > 0 && rawTender !== "CASH" && rawTender !== "UPI" && rawTender !== "SPLIT");
+            
+            if (isOldFormat) {
+                return {
+                    timestamp: o.timestamp, orderId: o.orderId, customerName: "", customerPhone: "",
+                    items: o.customerName || "", tender: o.customerPhone || "CASH", 
+                    parcelCharge: (o.items && String(o.items).includes("Yes")) ? 5 : 0, 
+                    total: tenderAsNum || 0, voided: false, cart: parseItemsToCart(o.customerName || "")
+                };
+            }
+            
+            return {
+                ...o, tender: rawTender || "CASH", parcelCharge: Number(String(o.parcelCharge).replace(/[^0-9.-]+/g, "")) || 0,
+                total: Number(rawTotal.replace(/[^0-9.-]+/g, "")) || 0, voided: !!o.voided, cart: o.cart || parseItemsToCart(o.items || "")
+            };
+        }
+
         async function loadAdminData() {
             const dateVal = document.getElementById('adminDatePicker').value;
             const targetDateObj = dateVal ? new Date(dateVal) : new Date();
@@ -838,29 +862,9 @@
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
                     const rawOrders = await res.json();
-                    
-                    dailyOrders = rawOrders.map(o => {
-                        const rawTotal = String(o.total || "").trim();
-                        const rawTender = String(o.tender || "").trim();
-                        const tenderAsNum = Number(rawTender.replace(/[^0-9.-]+/g, ""));
-                        const isOldFormat = o.total === undefined || (!isNaN(tenderAsNum) && tenderAsNum > 0 && rawTender !== "CASH" && rawTender !== "UPI" && rawTender !== "SPLIT");
-                        
-                        if (isOldFormat) {
-                            return {
-                                timestamp: o.timestamp, orderId: o.orderId, customerName: "", customerPhone: "",
-                                items: o.customerName || "", tender: o.customerPhone || "CASH", 
-                                parcelCharge: (o.items && String(o.items).includes("Yes")) ? 5 : 0, 
-                                total: tenderAsNum || 0, voided: false, cart: parseItemsToCart(o.customerName || "")
-                            };
-                        }
-                        
-                        return {
-                            ...o, tender: rawTender || "CASH", parcelCharge: Number(String(o.parcelCharge).replace(/[^0-9.-]+/g, "")) || 0,
-                            total: Number(rawTotal.replace(/[^0-9.-]+/g, "")) || 0, voided: !!o.voided, cart: o.cart || parseItemsToCart(o.items || "")
-                        };
-                    });
-                } catch(e) { dailyOrders = getLocalOrdersForDate(targetDateObj); }
-            } else { dailyOrders = getLocalOrdersForDate(targetDateObj); }
+                    dailyOrders = rawOrders.map(normalizeOrderData);
+                } catch(e) { dailyOrders = getLocalOrdersForDate(targetDateObj).map(normalizeOrderData); }
+            } else { dailyOrders = getLocalOrdersForDate(targetDateObj).map(normalizeOrderData); }
             
             renderAdminDashboard(dailyOrders);
         }
@@ -968,12 +972,8 @@
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
                     const cloudOrder = await res.json();
-                    if (!cloudOrder.error) {
-                        order = cloudOrder;
-                    }
-                } catch(e) {
-                    console.warn("Cloud fetch failed", e);
-                }
+                    if (!cloudOrder.error) { order = cloudOrder; }
+                } catch(e) { console.warn("Cloud fetch failed", e); }
             }
             
             if (!order) {
@@ -981,17 +981,12 @@
                 order = h.find(o => o.orderId === orderId);
             }
             
-            if (!order) {
-                showToast("Order missing from memory & cloud."); return;
-            }
+            if (!order) { showToast("Order missing from memory & cloud."); return; }
             
-            if(!order.cart || order.cart.length === 0) order.cart = parseItemsToCart(order.items);
+            order = normalizeOrderData(order); // Safe normalization
             
-            let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            if (!history.find(o => o.orderId === order.orderId)) {
-                history.push(order);
-                localStorage.setItem('orderHistory', JSON.stringify(history));
-            }
+            // CRITICAL FIX: Close all panels BEFORE setting state to prevent accidental wipe
+            closeAllPanels(); 
             
             editingOrderId = order.orderId;
             currentBill = order.cart && order.cart.length > 0 ? JSON.parse(JSON.stringify(order.cart)) : parseItemsToCart(order.items);
@@ -1001,29 +996,33 @@
             document.getElementById('custPhone').value = order.customerPhone || "";
             document.getElementById('parcelToggle').checked = order.parcelCharge > 0;
             
-            closeAllPanels(); openCart(); showToast("Edit Mode Active");
+            openCart(); showToast("Edit Mode Active");
         }
 
         // --- INVOICE / PDF LOGIC ---
         async function showInvoice(orderId) {
-            const h = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            let order = h.find(o => o.orderId === orderId);
-            
-            if (!order) { 
-                if (GOOGLE_WEB_APP_URL.includes("__")) { showToast("Order missing from memory."); return; }
+            let order = null;
+            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
                 showToast("Fetching invoice from Cloud...");
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
                     const cloudOrder = await res.json();
-                    if (cloudOrder.error) { showToast(cloudOrder.error); return; }
-                    order = cloudOrder;
-                    if(!order.cart || order.cart.length === 0) order.cart = parseItemsToCart(order.items);
-                    h.push(order); localStorage.setItem('orderHistory', JSON.stringify(h));
-                } catch(e) { showToast("Failed to fetch invoice."); return; }
+                    if (!cloudOrder.error) { order = cloudOrder; }
+                } catch(e) {}
             }
+            
+            if (!order) {
+                const h = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+                order = h.find(o => o.orderId === orderId);
+            }
+
+            if (!order) { showToast("Order missing from memory & cloud."); return; }
+
+            order = normalizeOrderData(order); // Safe normalization
             
             const cartToUse = order.cart && order.cart.length > 0 ? order.cart : parseItemsToCart(order.items);
             const receiptText = generateReceipt(order.orderId, cartToUse, parseFloat(order.total), order.tender, order.timestamp);
+            
             document.getElementById('invoiceText').innerText = receiptText;
             document.getElementById('invoiceModal').classList.add('open');
             document.getElementById('overlayBackdrop').classList.add('open');
@@ -1042,32 +1041,35 @@
                     const dd = String(dObj.getDate()).padStart(2, '0');
                     const mm = String(dObj.getMonth() + 1).padStart(2, '0');
                     const yyyy = dObj.getFullYear();
-                    const hh = String(dObj.getHours()).padStart(2, '0');
+                    let h = dObj.getHours();
                     const min = String(dObj.getMinutes()).padStart(2, '0');
-                    const ss = String(dObj.getSeconds()).padStart(2, '0');
-                    displayDate = `${dd}.${mm}.${yyyy} - ${hh}.${min}.${ss}`;
+                    const ampm = h >= 12 ? 'pm' : 'am';
+                    h = h % 12;
+                    h = h ? h : 12; 
+                    displayDate = `${dd}/${mm}/${yyyy} - ${String(h).padStart(2,'0')}.${min} ${ampm}`;
                 } else {
                     const tsStr = String(timestamp);
                     const parts = tsStr.split(' ');
                     if (parts.length >= 2) {
                         const dateParts = parts[0].split('.');
                         const timeStr = parts.slice(1).join(' ');
-                        let hh = "00", min = "00", ss = "00";
-                        const timeMatch = timeStr.match(/(\d+):(\d+)(?::(\d+))?\s*(AM|PM)?/i);
+                        let hh = "12", min = "00", ampm = "am";
+                        const timeMatch = timeStr.match(/(\d+):(\d+)(?::(\d+))?\s*(AM|PM|am|pm)?/i);
                         if (timeMatch) {
                             let h = parseInt(timeMatch[1], 10);
                             min = timeMatch[2].padStart(2, '0');
-                            ss = timeMatch[3] ? timeMatch[3].padStart(2, '0') : "00";
-                            const ampm = timeMatch[4];
-                            if (ampm) {
-                                if (ampm.toUpperCase() === 'PM' && h < 12) h += 12;
-                                if (ampm.toUpperCase() === 'AM' && h === 12) h = 0;
+                            if (timeMatch[4]) {
+                                ampm = timeMatch[4].toLowerCase();
+                            } else {
+                                ampm = h >= 12 ? 'pm' : 'am';
+                                h = h % 12;
+                                h = h ? h : 12;
                             }
                             hh = String(h).padStart(2, '0');
                         }
                         if (dateParts.length === 3) {
                             const yy = dateParts[2].length === 2 ? "20" + dateParts[2] : dateParts[2];
-                            displayDate = `${dateParts[0].padStart(2,'0')}.${dateParts[1].padStart(2,'0')}.${yy} - ${hh}.${min}.${ss}`;
+                            displayDate = `${dateParts[0].padStart(2,'0')}/${dateParts[1].padStart(2,'0')}/${yy} - ${hh}.${min} ${ampm}`;
                         } else {
                             displayDate = tsStr;
                         }
@@ -1244,7 +1246,7 @@
         }
         
         function switchAdminTab(t) { 
-            document.querySelectorAll('.admin-tab').forEach(el => el.classList.toggle('active', el.id.includes(t))); 
+            document.querySelectorAll('.admin-tab').forEach(el => el.classList.toggle('active', el.id.toLowerCase().includes(t.toLowerCase()))); 
             document.getElementById('sectOverview').style.display = t === 'overview' ? 'block' : 'none'; 
             document.getElementById('sectForecast').style.display = t === 'forecast' ? 'block' : 'none'; 
             document.getElementById('sectExpenses').style.display = t === 'expenses' ? 'block' : 'none'; 
