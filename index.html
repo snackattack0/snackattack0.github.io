@@ -961,25 +961,42 @@
 
         // --- EDIT ORDER LOGIC ---
         async function editOrder(orderId) {
-            const h = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            let order = h.find(o => o.orderId === orderId);
+            showToast("Fetching order from Cloud...");
+            let order = null;
             
-            if (!order) { 
-                if (GOOGLE_WEB_APP_URL.includes("__")) { showToast("Order missing from memory."); return; }
-                showToast("Fetching order from Cloud...");
+            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
                     const cloudOrder = await res.json();
-                    if (cloudOrder.error) { showToast(cloudOrder.error); return; }
-                    order = cloudOrder;
-                    if(!order.cart || order.cart.length === 0) order.cart = parseItemsToCart(order.items);
-                    h.push(order); localStorage.setItem('orderHistory', JSON.stringify(h));
-                } catch(e) { showToast("Failed to fetch order."); return; }
+                    if (!cloudOrder.error) {
+                        order = cloudOrder;
+                    }
+                } catch(e) {
+                    console.warn("Cloud fetch failed", e);
+                }
+            }
+            
+            if (!order) {
+                const h = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+                order = h.find(o => o.orderId === orderId);
+            }
+            
+            if (!order) {
+                showToast("Order missing from memory & cloud."); return;
+            }
+            
+            if(!order.cart || order.cart.length === 0) order.cart = parseItemsToCart(order.items);
+            
+            let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+            if (!history.find(o => o.orderId === order.orderId)) {
+                history.push(order);
+                localStorage.setItem('orderHistory', JSON.stringify(history));
             }
             
             editingOrderId = order.orderId;
             currentBill = order.cart && order.cart.length > 0 ? JSON.parse(JSON.stringify(order.cart)) : parseItemsToCart(order.items);
             currentTender = (order.tender || 'upi').toLowerCase();
+            
             document.getElementById('custName').value = order.customerName || "";
             document.getElementById('custPhone').value = order.customerPhone || "";
             document.getElementById('parcelToggle').checked = order.parcelCharge > 0;
@@ -1016,10 +1033,49 @@
             function padRight(text,len){ return text + " ".repeat(Math.max(len - text.length,0)); }
             function padLeft(text,len){ return " ".repeat(Math.max(len - text.length,0)) + text; }
             let receipt = "SNACK ATTACK\n--------------------------------\n\n";
-            receipt += "Bill No : " + (orderId || "N/A") + "\n";
+            receipt += "Bill No      : " + (orderId || "N/A") + "\n";
+            
             let displayDate = timestamp;
-            if (new Date(timestamp).toString() !== "Invalid Date") displayDate = new Date(timestamp).toLocaleString();
-            receipt += "Date    : " + displayDate + "\n\n";
+            try {
+                let dObj = new Date(timestamp);
+                if (dObj.toString() !== "Invalid Date") {
+                    const dd = String(dObj.getDate()).padStart(2, '0');
+                    const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+                    const yyyy = dObj.getFullYear();
+                    const hh = String(dObj.getHours()).padStart(2, '0');
+                    const min = String(dObj.getMinutes()).padStart(2, '0');
+                    const ss = String(dObj.getSeconds()).padStart(2, '0');
+                    displayDate = `${dd}.${mm}.${yyyy} - ${hh}.${min}.${ss}`;
+                } else {
+                    const tsStr = String(timestamp);
+                    const parts = tsStr.split(' ');
+                    if (parts.length >= 2) {
+                        const dateParts = parts[0].split('.');
+                        const timeStr = parts.slice(1).join(' ');
+                        let hh = "00", min = "00", ss = "00";
+                        const timeMatch = timeStr.match(/(\d+):(\d+)(?::(\d+))?\s*(AM|PM)?/i);
+                        if (timeMatch) {
+                            let h = parseInt(timeMatch[1], 10);
+                            min = timeMatch[2].padStart(2, '0');
+                            ss = timeMatch[3] ? timeMatch[3].padStart(2, '0') : "00";
+                            const ampm = timeMatch[4];
+                            if (ampm) {
+                                if (ampm.toUpperCase() === 'PM' && h < 12) h += 12;
+                                if (ampm.toUpperCase() === 'AM' && h === 12) h = 0;
+                            }
+                            hh = String(h).padStart(2, '0');
+                        }
+                        if (dateParts.length === 3) {
+                            const yy = dateParts[2].length === 2 ? "20" + dateParts[2] : dateParts[2];
+                            displayDate = `${dateParts[0].padStart(2,'0')}.${dateParts[1].padStart(2,'0')}.${yy} - ${hh}.${min}.${ss}`;
+                        } else {
+                            displayDate = tsStr;
+                        }
+                    }
+                }
+            } catch(e) {}
+            
+            receipt += "Date & Time  : " + displayDate + "\n\n";
             receipt += "--------------------------------\n";
             receipt += padRight("Item",16) + padLeft("Qty",5) + padLeft("Price",7) + padLeft("Amt",8) + "\n";
             receipt += "--------------------------------\n";
