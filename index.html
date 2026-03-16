@@ -722,6 +722,9 @@
                 if(idx !== -1) {
                     payload.timestamp = history[idx].timestamp; // Preserve original time
                     history[idx] = payload;
+                } else {
+                    // Fallback if not found locally, just push to cache
+                    history.push(payload);
                 }
             } else {
                 history.push(payload);
@@ -960,16 +963,35 @@
         }
 
         // --- EDIT ORDER LOGIC ---
-        function editOrder(orderId) {
+        async function editOrder(orderId) {
             const h = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            const order = h.find(o => o.orderId === orderId);
+            let order = h.find(o => o.orderId === orderId);
             
-            if (!order) { showToast("Order details missing from local memory."); return; }
+            if (!order) { 
+                if (GOOGLE_WEB_APP_URL.includes("__")) {
+                    showToast("Order details missing from local memory."); return;
+                }
+                showToast("Fetching order from Cloud...");
+                try {
+                    const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
+                    const cloudOrder = await res.json();
+                    if (cloudOrder.error) { showToast(cloudOrder.error); return; }
+                    order = cloudOrder;
+                    
+                    // Ensure cart array is built from string if missing
+                    if(!order.cart || order.cart.length === 0) order.cart = parseItemsToCart(order.items);
+                    
+                    h.push(order);
+                    localStorage.setItem('orderHistory', JSON.stringify(h));
+                } catch(e) {
+                    showToast("Failed to fetch order from cloud."); return;
+                }
+            }
             
             // Populate App State
             editingOrderId = order.orderId;
             currentBill = order.cart && order.cart.length > 0 ? JSON.parse(JSON.stringify(order.cart)) : parseItemsToCart(order.items);
-            currentTender = order.tender.toLowerCase();
+            currentTender = (order.tender || 'upi').toLowerCase();
             
             // Set UI
             document.getElementById('custName').value = order.customerName || "";
@@ -982,10 +1004,29 @@
         }
 
         // --- INVOICE / PDF LOGIC ---
-        function showInvoice(orderId) {
+        async function showInvoice(orderId) {
             const h = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            const order = h.find(o => o.orderId === orderId);
-            if (!order) { showToast("Order details missing."); return; }
+            let order = h.find(o => o.orderId === orderId);
+            
+            if (!order) { 
+                if (GOOGLE_WEB_APP_URL.includes("__")) {
+                    showToast("Order details missing from local memory."); return;
+                }
+                showToast("Fetching invoice from Cloud...");
+                try {
+                    const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
+                    const cloudOrder = await res.json();
+                    if (cloudOrder.error) { showToast(cloudOrder.error); return; }
+                    order = cloudOrder;
+                    
+                    if(!order.cart || order.cart.length === 0) order.cart = parseItemsToCart(order.items);
+                    
+                    h.push(order);
+                    localStorage.setItem('orderHistory', JSON.stringify(h));
+                } catch(e) {
+                    showToast("Failed to fetch invoice from cloud."); return;
+                }
+            }
             
             const cartToUse = order.cart && order.cart.length > 0 ? order.cart : parseItemsToCart(order.items);
             const receiptText = generateReceipt(order.orderId, cartToUse, parseFloat(order.total), order.tender, order.timestamp);
@@ -1028,7 +1069,7 @@
             
             receipt += "--------------------------------\n";
             receipt += padRight("Total",28) + padLeft(total.toFixed(2),8) + "\n\n";
-            receipt += "Pay Mode : " + tender.toUpperCase() + "\n\n";
+            receipt += "Pay Mode : " + (tender || 'CASH').toUpperCase() + "\n\n";
             receipt += "Thank you visit again";
 
             return receipt;
