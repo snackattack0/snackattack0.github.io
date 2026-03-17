@@ -314,7 +314,7 @@
                     <div id="pnlAction" style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.9em; display: none;"></div>
                 </div>
 
-                <h3 style="margin-top: 10px; margin-bottom: 12px; color:var(--text-main);">All Expenses</h3>
+                <h3 style="margin-top: 10px; margin-bottom: 12px; color:var(--text-main);">This Month's Expenses</h3>
                 <div id="expenseList" style="display:flex; flex-direction:column; gap: 10px; max-height: 250px; overflow-y:auto; padding-right: 5px;"></div>
             </div>
         </div>
@@ -956,20 +956,28 @@
             return tempCart;
         }
 
+        // ULTIMATE FALLBACK: Fixed custom format handling and "no orders" bug
         function getLocalOrdersForDate(targetStr, targetDateObj) {
             const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
             
             return history.filter(o => {
                 if (!o.timestamp) return false;
                 
-                // Directly check the front of the string (e.g. "16.03.26")
                 const dateSection = String(o.timestamp).trim().split(' ')[0];
                 if (dateSection === targetStr) return true;
                 
-                // Absolute Fallback for completely custom ISO strings
                 let dObj = new Date(o.timestamp);
                 if (dObj.toString() !== "Invalid Date" && targetDateObj) {
                     return dObj.toDateString() === targetDateObj.toDateString();
+                }
+                
+                // Ultimate fallback for custom formats like "16.03.26" if it sneaks through
+                if (dateSection.includes('.')) {
+                    const parts = dateSection.split('.');
+                    if (parts.length === 3) {
+                       const checkDate = new Date(parseInt("20" + parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                       if (targetDateObj) return checkDate.toDateString() === targetDateObj.toDateString();
+                    }
                 }
                 return false;
             });
@@ -1207,28 +1215,86 @@
             } else showToast("Wrong Password");
         }
 
-        // 1. Helper to get Monthly Revenue
-        function getMonthlyRevenue(currentMonth, currentYear) {
-            let monthlyRev = 0;
-            const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            
-            history.forEach(o => {
-                if (o.voided) return;
-                
-                let d = new Date(o.timestamp);
-                // Safe parsing string fallback to strictly avoid "Invalid Date" evaluation errors
-                if (isNaN(d.getTime()) && typeof o.timestamp === 'string') {
-                    const parts = o.timestamp.trim().split(' ')[0].split('.');
-                    if (parts.length === 3) {
-                        d = new Date(parseInt("20" + parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        // 1. Smart Cloud Fetcher for Monthly Revenue
+        async function calculateCloudMonthlyRevenue(currentMonth, currentYear) {
+            // If offline or no live URL, fallback to local storage
+            if (!navigator.onLine || !GOOGLE_WEB_APP_URL.startsWith("http")) {
+                let monthlyRev = 0;
+                const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+                history.forEach(o => {
+                    if (o.voided) return;
+                    let d = new Date(o.timestamp);
+                    if (isNaN(d.getTime()) && typeof o.timestamp === 'string') {
+                        const parts = o.timestamp.trim().split(' ')[0].split('.');
+                        if (parts.length === 3) d = new Date(parseInt("20" + parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
                     }
-                }
+                    if (!isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+                        monthlyRev += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
+                    }
+                });
+                return monthlyRev;
+            }
+
+            const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+            const isCurrentMonth = (currentMonth === now.getMonth() && currentYear === now.getFullYear());
+            const maxDays = isCurrentMonth ? now.getDate() : new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            const yy = String(currentYear).slice(-2);
+            const mm = String(currentMonth + 1).padStart(2, '0');
+            
+            let revenueCache = JSON.parse(localStorage.getItem('cloudRevenueCache') || '{}');
+            let totalRev = 0;
+            let daysToFetch = [];
+
+            // Determine which days need to be fetched from cloud
+            for (let d = 1; d <= maxDays; d++) {
+                const dd = String(d).padStart(2, '0');
+                const sheetDateStr = `${dd}.${mm}.${yy}`;
                 
-                if (!isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-                    monthlyRev += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
+                // If it's a past date and we already cached it, use cache
+                if (d < now.getDate() && revenueCache[sheetDateStr] !== undefined) {
+                    totalRev += revenueCache[sheetDateStr];
+                } else {
+                    daysToFetch.push(sheetDateStr);
                 }
-            });
-            return monthlyRev;
+            }
+
+            // Fetch missing days from cloud
+            if (daysToFetch.length > 0) {
+                const fetchPromises = daysToFetch.map(async (sheetDateStr) => {
+                    try {
+                        const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
+                        const orders = await res.json();
+                        if (!Array.isArray(orders)) return { date: sheetDateStr, rev: 0 };
+                        
+                        let dayRev = 0;
+                        orders.forEach(o => {
+                            const isVoided = !!o.voided || String(o.tender || "").toUpperCase() === "VOIDED" || String(o.status || "").toUpperCase() === "VOIDED";
+                            if (!isVoided) {
+                                dayRev += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
+                            }
+                        });
+                        return { date: sheetDateStr, rev: dayRev };
+                    } catch(e) {
+                        return { date: sheetDateStr, rev: 0 }; // Ignore errors silently
+                    }
+                });
+
+                const results = await Promise.all(fetchPromises);
+                
+                results.forEach(result => {
+                    totalRev += result.rev;
+                    // Only cache past days. Never cache "today" because it keeps changing!
+                    const requestDay = parseInt(result.date.split('.')[0]);
+                    if (requestDay < now.getDate() || !isCurrentMonth) {
+                        revenueCache[result.date] = result.rev;
+                    }
+                });
+                
+                localStorage.setItem('cloudRevenueCache', JSON.stringify(revenueCache));
+            }
+
+            return totalRev;
         }
 
         // --- EXPENSES TRACKER ---
@@ -1247,11 +1313,17 @@
         }
 
         // 2. The Main Render Function for Expenses & P&L
-        function renderExpenses() {
+        async function renderExpenses() {
             const listEl = document.getElementById('expenseList');
             const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
             const currentMonth = now.getMonth();
             const currentYear = now.getFullYear();
+
+            // Set UI to loading state for Revenue calculation
+            document.getElementById('revTotal').innerHTML = `<span class="material-symbols-rounded spinner" style="font-size:16px;">sync</span>`;
+            document.getElementById('pnlStatus').innerText = `Calculating P&L...`;
+            document.getElementById('pnlSubtext').innerText = `Syncing month's revenue sheets...`;
+            document.getElementById('pnlAction').style.display = 'none';
 
             let totalExp = 0;
             let uniqueNames = new Set();
@@ -1290,8 +1362,8 @@
             dl.innerHTML = '';
             uniqueNames.forEach(n => dl.innerHTML += `<option value="${n}">`);
 
-            // Calculate P&L
-            const monthlyRev = getMonthlyRevenue(currentMonth, currentYear);
+            // Fetch and Calculate P&L Revenue
+            const monthlyRev = await calculateCloudMonthlyRevenue(currentMonth, currentYear);
             document.getElementById('revTotal').innerText = "₹" + monthlyRev;
 
             const netBalance = monthlyRev - totalExp;
