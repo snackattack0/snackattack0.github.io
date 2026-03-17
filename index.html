@@ -533,7 +533,7 @@
             populateCategoryList(); renderChips(); renderMenu(activeCategory);
             showToast("Added locally, syncing to Cloud...");
 
-            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 try {
                     await fetch(GOOGLE_WEB_APP_URL, {
                         method: 'POST',
@@ -764,7 +764,7 @@
             }
             localStorage.setItem('orderHistory', JSON.stringify(history));
 
-            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
             } else {
                 saveOffline(payload);
@@ -795,7 +795,7 @@
 
         function startWebhookPolling() {
             stopWebhookPolling();
-            if (GOOGLE_WEB_APP_URL.includes("__PLACEHOLDER__")) return;
+            if (!GOOGLE_WEB_APP_URL.startsWith("http")) return;
             webhookInterval = setInterval(async () => {
                 try {
                     const checkUrl = `${GOOGLE_WEB_APP_URL}?action=checkStatus&orderId=${currentTransactionId}`;
@@ -817,7 +817,7 @@
 
         async function handleOnlineSync() {
             document.getElementById('offlineBanner').style.display = 'none';
-            if(GOOGLE_WEB_APP_URL.includes("__")) return;
+            if(!GOOGLE_WEB_APP_URL.startsWith("http")) return;
             
             // Sync Orders
             let queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
@@ -857,7 +857,7 @@
         function normalizeOrderData(o) {
             if (!o) return null;
             
-            const rawTotal = String(o.total || "").trim();
+            const rawTotal = String(o.total || "0").trim();
             const rawTender = String(o.tender || "").trim();
             const tenderAsNum = Number(rawTender.replace(/[^0-9.-]+/g, ""));
             const isOldFormatByTender = (!isNaN(tenderAsNum) && tenderAsNum > 0 && !["CASH", "UPI", "SPLIT"].includes(rawTender.toUpperCase()));
@@ -884,9 +884,12 @@
             }
             
             return {
-                timestamp: o.timestamp, orderId: o.orderId, 
-                customerName: String(o.customerName || ""), customerPhone: String(o.customerPhone || ""),
-                items: String(o.items || ""), tender: String(o.tender || "CASH").toUpperCase(), 
+                timestamp: o.timestamp || new Date().toISOString(), 
+                orderId: o.orderId || "UNKNOWN", 
+                customerName: String(o.customerName || ""), 
+                customerPhone: String(o.customerPhone || ""),
+                items: String(o.items || ""), 
+                tender: String(o.tender || "CASH").toUpperCase(), 
                 parcelCharge: parseFloat(String(o.parcelCharge || "0").replace(/[^0-9.-]+/g, "")) || 0,
                 total: parseFloat(rawTotal.replace(/[^0-9.-]+/g, "")) || 0, 
                 voided: !!o.voided || String(o.tender || "").toUpperCase() === "VOIDED", 
@@ -896,25 +899,46 @@
 
         async function loadAdminData() {
             const dateVal = document.getElementById('adminDatePicker').value;
-            const targetDateObj = dateVal ? new Date(dateVal) : new Date();
+            let targetDateObj, sheetDateStr;
             
-            const dd = String(targetDateObj.getDate()).padStart(2, '0');
-            const mm = String(targetDateObj.getMonth() + 1).padStart(2, '0');
-            const yy = String(targetDateObj.getFullYear()).slice(-2);
-            const sheetDateStr = `${dd}.${mm}.${yy}`;
+            // Bypass strict timezone Date parsing by splitting the standard YYYY-MM-DD input directly
+            if (dateVal) {
+                const parts = dateVal.split('-');
+                const yy = parts[0].slice(-2);
+                const mm = parts[1];
+                const dd = parts[2];
+                sheetDateStr = `${dd}.${mm}.${yy}`;
+                targetDateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            } else {
+                targetDateObj = new Date();
+                const dd = String(targetDateObj.getDate()).padStart(2, '0');
+                const mm = String(targetDateObj.getMonth() + 1).padStart(2, '0');
+                const yy = String(targetDateObj.getFullYear()).slice(-2);
+                sheetDateStr = `${dd}.${mm}.${yy}`;
+            }
 
             const listEl = document.getElementById('adminOrderList');
             listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching from Cloud...</div>`;
 
             let dailyOrders = [];
 
-            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
                     const rawOrders = await res.json();
-                    dailyOrders = rawOrders.map(normalizeOrderData);
-                } catch(e) { dailyOrders = getLocalOrdersForDate(targetDateObj).map(normalizeOrderData); }
-            } else { dailyOrders = getLocalOrdersForDate(targetDateObj).map(normalizeOrderData); }
+                    
+                    if (Array.isArray(rawOrders)) {
+                        dailyOrders = rawOrders.map(normalizeOrderData).filter(Boolean);
+                    } else {
+                        throw new Error("Invalid Cloud Format");
+                    }
+                } catch(e) { 
+                    console.warn("Cloud fetch error:", e);
+                    dailyOrders = getLocalOrdersForDate(sheetDateStr, targetDateObj).map(normalizeOrderData).filter(Boolean); 
+                }
+            } else { 
+                dailyOrders = getLocalOrdersForDate(sheetDateStr, targetDateObj).map(normalizeOrderData).filter(Boolean); 
+            }
             
             renderAdminDashboard(dailyOrders);
         }
@@ -932,20 +956,19 @@
             return tempCart;
         }
 
-        function getLocalOrdersForDate(targetDateObj) {
+        function getLocalOrdersForDate(targetStr, targetDateObj) {
             const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-            const targetDd = String(targetDateObj.getDate()).padStart(2, '0');
-            const targetMm = String(targetDateObj.getMonth() + 1).padStart(2, '0');
-            const targetYy = String(targetDateObj.getFullYear()).slice(-2);
-            const targetStr = `${targetDd}.${targetMm}.${targetYy}`;
-
+            
             return history.filter(o => {
                 if (!o.timestamp) return false;
+                
+                // Directly check the front of the string (e.g. "16.03.26")
                 const dateSection = String(o.timestamp).trim().split(' ')[0];
                 if (dateSection === targetStr) return true;
                 
+                // Absolute Fallback for completely custom ISO strings
                 let dObj = new Date(o.timestamp);
-                if (dObj.toString() !== "Invalid Date") {
+                if (dObj.toString() !== "Invalid Date" && targetDateObj) {
                     return dObj.toDateString() === targetDateObj.toDateString();
                 }
                 return false;
@@ -953,12 +976,14 @@
         }
 
         function renderAdminDashboard(dailyOrders) {
-            const valid = dailyOrders.filter(o => !o.voided);
+            const valid = dailyOrders.filter(o => o && !o.voided);
             const totalRev = valid.reduce((s,o) => s + (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0), 0);
+            
             document.getElementById('adminRev').innerText = "₹" + totalRev;
             document.getElementById('adminOrders').innerText = valid.length;
             
             document.getElementById('adminOrderList').innerHTML = dailyOrders.slice().reverse().map(o => {
+                if (!o) return "";
                 const cleanTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
                 return `
                     <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}; margin-bottom:10px; flex-wrap:wrap;">
@@ -1036,7 +1061,7 @@
             
             let order = null;
             
-            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
                     const cloudOrder = await res.json();
@@ -1069,7 +1094,7 @@
         // --- INVOICE / PDF LOGIC ---
         async function showInvoice(orderId) {
             let order = null;
-            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 showToast("Fetching invoice from Cloud...");
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
@@ -1175,7 +1200,7 @@
                 let target = h.find(o => o.orderId === currentVoidOrderId);
                 if (target) target.voided = true;
                 localStorage.setItem('orderHistory', JSON.stringify(h));
-                if(!GOOGLE_WEB_APP_URL.includes("__")) fetch(GOOGLE_WEB_APP_URL, { method:'POST', body:JSON.stringify({action:'voidOrder', orderId:currentVoidOrderId, timestamp:target?target.timestamp:new Date().toISOString()}) });
+                if(GOOGLE_WEB_APP_URL.startsWith("http")) fetch(GOOGLE_WEB_APP_URL, { method:'POST', body:JSON.stringify({action:'voidOrder', orderId:currentVoidOrderId, timestamp:target?target.timestamp:new Date().toISOString()}) });
                 loadAdminData();
                 document.getElementById('voidAuthModal').classList.remove('open');
                 showToast("Order Voided");
@@ -1189,12 +1214,17 @@
             
             history.forEach(o => {
                 if (o.voided) return;
+                
                 let d = new Date(o.timestamp);
+                // Safe parsing string fallback to strictly avoid "Invalid Date" evaluation errors
                 if (isNaN(d.getTime()) && typeof o.timestamp === 'string') {
-                    const parts = o.timestamp.split(' ')[0].split('.');
-                    if (parts.length === 3) d = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
+                    const parts = o.timestamp.trim().split(' ')[0].split('.');
+                    if (parts.length === 3) {
+                        d = new Date(parseInt("20" + parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                    }
                 }
-                if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+                
+                if (!isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
                     monthlyRev += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
                 }
             });
@@ -1206,7 +1236,7 @@
             const listEl = document.getElementById('expenseList');
             listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching Expenses...</div>`;
             
-            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getExpenses`);
                     cloudExpensesData = await res.json();
@@ -1328,7 +1358,7 @@
             document.getElementById('expNameInput').value = '';
             document.getElementById('expAmountInput').value = '';
 
-            if (navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 showToast("Saving Expense to Cloud...");
                 try {
                     await fetch(GOOGLE_WEB_APP_URL, {
@@ -1360,7 +1390,7 @@
             const listEl = document.getElementById('forecastList');
             const dayNum = parseInt(document.getElementById('forecastDay').value);
 
-            if (!cloudForecastData && navigator.onLine && !GOOGLE_WEB_APP_URL.includes("__")) {
+            if (!cloudForecastData && navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 listEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Analyzing 30-Day Cloud Data...</div>`;
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getForecast`);
