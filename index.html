@@ -314,7 +314,7 @@
                     <div id="pnlAction" style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.9em; display: none;"></div>
                 </div>
 
-                <h3 style="margin-top: 10px; margin-bottom: 12px; color:var(--text-main);">This Month's Expenses</h3>
+                <h3 style="margin-top: 10px; margin-bottom: 12px; color:var(--text-main);">All Expenses</h3>
                 <div id="expenseList" style="display:flex; flex-direction:column; gap: 10px; max-height: 250px; overflow-y:auto; padding-right: 5px;"></div>
             </div>
         </div>
@@ -1235,21 +1235,25 @@
                 let eDate = new Date(e.date || e.timestamp);
                 if (isNaN(eDate.getTime())) eDate = now; 
 
+                // Add to total ONLY if it's this month
                 if (eDate.getMonth() === currentMonth && eDate.getFullYear() === currentYear) {
                     const amt = parseFloat(e.amount) || 0;
                     totalExp += amt;
-                    uniqueNames.add(e.name);
-                    const catLabel = e.category ? `<span style="font-size: 0.75em; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${e.category}</span>` : '';
-                    
-                    listHtml += `
-                    <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; margin-bottom:10px;">
-                        <div><b style="color:var(--primary);">${e.name}</b>${catLabel}<br><small style="color:var(--text-muted);">${eDate.toLocaleDateString('en-IN')}</small></div>
-                        <div style="font-weight:800; font-size:1.1em; color:#ef4444;">-₹${amt}</div>
-                    </div>`;
                 }
+                
+                // Show ALL expenses in the list so history isn't lost
+                const amt = parseFloat(e.amount) || 0;
+                uniqueNames.add(e.name);
+                const catLabel = e.category && e.category !== "Uncategorized" ? `<span style="font-size: 0.75em; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${e.category}</span>` : '';
+                
+                listHtml += `
+                <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <div><b style="color:var(--primary);">${e.name}</b>${catLabel}<br><small style="color:var(--text-muted);">${eDate.toLocaleDateString('en-IN')}</small></div>
+                    <div style="font-weight:800; font-size:1.1em; color:#ef4444;">-₹${amt}</div>
+                </div>`;
             });
 
-            listEl.innerHTML = listHtml || `<div style="text-align:center; padding:20px; color:#888;">No expenses recorded this month.</div>`;
+            listEl.innerHTML = listHtml || `<div style="text-align:center; padding:20px; color:#888;">No expenses recorded.</div>`;
             document.getElementById('expTotal').innerText = "₹" + totalExp;
 
             const dl = document.getElementById('expenseSuggestions');
