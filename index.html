@@ -271,12 +271,22 @@
 
             <!-- OVERVIEW TAB -->
             <div id="sectOverview">
-                <input type="date" id="adminDatePicker" class="input-modern" style="width:auto; margin-bottom: 16px;" onchange="loadAdminData()">
+                <div style="display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; background: var(--bg-surface); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                    <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px;">
+                        <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">From Date</span>
+                        <input type="date" id="adminDatePicker" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px;">
+                        <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">To Date (Optional)</span>
+                        <input type="date" id="adminDatePickerTo" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
+                    </div>
+                </div>
+
                 <div class="stats-grid">
                     <div class="stat-card"><div>Revenue</div><div class="stat-val" id="adminRev">₹0</div></div>
                     <div class="stat-card"><div>Orders</div><div class="stat-val" id="adminOrders">0</div></div>
                 </div>
-                <h3 style="margin-top: 25px; margin-bottom: 12px; color:var(--text-main);">Order History (Cloud Synced)</h3>
+                <h3 style="margin-top: 25px; margin-bottom: 12px; color:var(--text-main);">Order History</h3>
                 <div id="adminOrderList" style="display:flex; flex-direction:column; gap: 10px; max-height: 400px; overflow-y:auto; padding-right: 5px;"></div>
 
                 <div class="chart-container" style="margin-top: 25px;"><canvas id="salesChart"></canvas></div>
@@ -898,49 +908,62 @@
         }
 
         async function loadAdminData() {
-            const dateVal = document.getElementById('adminDatePicker').value;
-            let targetDateObj, sheetDateStr;
+            const fromDateVal = document.getElementById('adminDatePicker').value;
+            const toDateVal = document.getElementById('adminDatePickerTo').value;
             
-            // Bypass strict timezone Date parsing by splitting the standard YYYY-MM-DD input directly
-            if (dateVal) {
-                const parts = dateVal.split('-');
-                const yy = parts[0].slice(-2);
-                const mm = parts[1];
-                const dd = parts[2];
-                sheetDateStr = `${dd}.${mm}.${yy}`;
-                targetDateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            } else {
-                targetDateObj = new Date();
-                const dd = String(targetDateObj.getDate()).padStart(2, '0');
-                const mm = String(targetDateObj.getMonth() + 1).padStart(2, '0');
-                const yy = String(targetDateObj.getFullYear()).slice(-2);
-                sheetDateStr = `${dd}.${mm}.${yy}`;
-            }
+            let startDateObj = fromDateVal ? new Date(fromDateVal) : new Date();
+            let endDateObj = toDateVal ? new Date(toDateVal) : new Date(startDateObj);
+
+            if (endDateObj < startDateObj) endDateObj = new Date(startDateObj);
 
             const listEl = document.getElementById('adminOrderList');
             listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching from Cloud...</div>`;
 
-            let dailyOrders = [];
+            let allOrders = [];
+            let daysToFetch = [];
+            let datesObjMap = [];
+
+            let currDate = new Date(startDateObj);
+            while (currDate <= endDateObj) {
+                const dd = String(currDate.getDate()).padStart(2, '0');
+                const mm = String(currDate.getMonth() + 1).padStart(2, '0');
+                const yy = String(currDate.getFullYear()).slice(-2);
+                daysToFetch.push(`${dd}.${mm}.${yy}`);
+                datesObjMap.push(new Date(currDate));
+                currDate.setDate(currDate.getDate() + 1);
+            }
 
             if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
-                try {
-                    const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
-                    const rawOrders = await res.json();
-                    
-                    if (Array.isArray(rawOrders)) {
-                        dailyOrders = rawOrders.map(normalizeOrderData).filter(Boolean);
-                    } else {
-                        throw new Error("Invalid Cloud Format");
+                const fetchPromises = daysToFetch.map(async (sheetDateStr, idx) => {
+                    try {
+                        const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
+                        const rawOrders = await res.json();
+                        if (Array.isArray(rawOrders)) {
+                            return rawOrders.map(normalizeOrderData).filter(Boolean);
+                        } else {
+                            throw new Error("Invalid Cloud Format");
+                        }
+                    } catch(e) { 
+                        console.warn("Cloud fetch error for " + sheetDateStr, e);
+                        return getLocalOrdersForDate(sheetDateStr, datesObjMap[idx]).map(normalizeOrderData).filter(Boolean); 
                     }
-                } catch(e) { 
-                    console.warn("Cloud fetch error:", e);
-                    dailyOrders = getLocalOrdersForDate(sheetDateStr, targetDateObj).map(normalizeOrderData).filter(Boolean); 
+                });
+
+                const results = await Promise.all(fetchPromises);
+                
+                // Add orders backwards so the newest days are at the top of the array
+                for (let i = results.length - 1; i >= 0; i--) {
+                    let dayOrders = results[i].slice().reverse();
+                    allOrders = allOrders.concat(dayOrders);
                 }
             } else { 
-                dailyOrders = getLocalOrdersForDate(sheetDateStr, targetDateObj).map(normalizeOrderData).filter(Boolean); 
+                for (let i = daysToFetch.length - 1; i >= 0; i--) {
+                    let dayOrders = getLocalOrdersForDate(daysToFetch[i], datesObjMap[i]).map(normalizeOrderData).filter(Boolean).reverse();
+                    allOrders = allOrders.concat(dayOrders);
+                }
             }
             
-            renderAdminDashboard(dailyOrders);
+            renderAdminDashboard(allOrders, startDateObj, endDateObj);
         }
 
         function parseItemsToCart(itemsStr) {
@@ -983,20 +1006,35 @@
             });
         }
 
-        function renderAdminDashboard(dailyOrders) {
-            const valid = dailyOrders.filter(o => o && !o.voided);
+        function renderAdminDashboard(validOrdersList, startDateObj, endDateObj) {
+            const valid = validOrdersList.filter(o => o && !o.voided);
             const totalRev = valid.reduce((s,o) => s + (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0), 0);
             
             document.getElementById('adminRev').innerText = "₹" + totalRev;
             document.getElementById('adminOrders').innerText = valid.length;
             
-            document.getElementById('adminOrderList').innerHTML = dailyOrders.slice().reverse().map(o => {
+            document.getElementById('adminOrderList').innerHTML = validOrdersList.map(o => {
                 if (!o) return "";
                 const cleanTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
+                
+                // Display Date nicely in the list
+                let displayDate = "";
+                if (o.timestamp) {
+                    let dStr = String(o.timestamp).split(' ')[0];
+                    if (dStr.includes('.')) {
+                        let p = dStr.split('.');
+                        displayDate = `${p[0]}/${p[1]}`;
+                    } else {
+                        let d = new Date(o.timestamp);
+                        if (d.toString() !== "Invalid Date") displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+                    }
+                }
+
                 return `
                     <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}; margin-bottom:10px; flex-wrap:wrap;">
                         <div style="flex:1; min-width: 60%;">
-                            <b style="${o.voided?'text-decoration:line-through':''}">${o.orderId || "Unknown"}</b><br>
+                            <b style="${o.voided?'text-decoration:line-through':''}">${o.orderId || "Unknown"}</b>
+                            <span style="font-size:0.75em; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; margin-left:6px;">${displayDate}</span><br>
                             <small>${o.items || ""}</small><br>
                             ${o.customerPhone || o.customerName ? `<small style="color:var(--primary); font-weight:600;">${o.customerName || 'Customer'} (${o.customerPhone || ''})</small>` : ''}
                             
@@ -1012,39 +1050,66 @@
                         </div>
                     </div>
                 `;
-            }).join('') || '<div style="color:#666; text-align:center; padding:20px;">No orders found for this day.</div>';
+            }).join('') || '<div style="color:#666; text-align:center; padding:20px;">No orders found for this range.</div>';
 
-            let hoursArray = new Array(24).fill(0); let minHour = 24; let maxHour = 0;
-            valid.forEach(o => {
-                let hr = 0; const tsStr = String(o.timestamp || ""); const timeMatch = tsStr.match(/(\d{1,2}):\d{2}/);
-                if (timeMatch) {
-                    hr = parseInt(timeMatch[1], 10);
-                    if (tsStr.toUpperCase().includes('PM') && hr < 12) hr += 12;
-                    if (tsStr.toUpperCase().includes('AM') && hr === 12) hr = 0;
+            const isMultiDay = startDateObj.toDateString() !== endDateObj.toDateString();
+            const displayHours = []; 
+            const displayLabels = [];
+
+            if (!isMultiDay) {
+                // SINGLE DAY CHART (BY HOUR)
+                let hoursArray = new Array(24).fill(0); let minHour = 24; let maxHour = 0;
+                valid.forEach(o => {
+                    let hr = 0; const tsStr = String(o.timestamp || ""); const timeMatch = tsStr.match(/(\d{1,2}):\d{2}/);
+                    if (timeMatch) {
+                        hr = parseInt(timeMatch[1], 10);
+                        if (tsStr.toUpperCase().includes('PM') && hr < 12) hr += 12;
+                        if (tsStr.toUpperCase().includes('AM') && hr === 12) hr = 0;
+                    }
+                    const safeTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
+                    hoursArray[hr] += safeTotal;
+                    if (hr < minHour) minHour = hr; if (hr > maxHour) maxHour = hr;
+                });
+                
+                const isToday = (startDateObj.toDateString() === new Date().toDateString());
+                if (isToday) {
+                    const currentHr = new Date().getHours();
+                    if (currentHr > maxHour) maxHour = currentHr;
+                    if (minHour === 24) minHour = currentHr;
                 }
-                const safeTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
-                hoursArray[hr] += safeTotal;
-                if (hr < minHour) minHour = hr; if (hr > maxHour) maxHour = hr;
-            });
-            
-            const dateVal = document.getElementById('adminDatePicker').value;
-            const isToday = !dateVal || (new Date(dateVal).toDateString() === new Date().toDateString());
-            if (isToday) {
-                const currentHr = new Date().getHours();
-                if (currentHr > maxHour) maxHour = currentHr;
-                if (minHour === 24) minHour = currentHr;
-            }
-            if (minHour === 24) { minHour = 9; maxHour = 17; }
+                if (minHour === 24) { minHour = 9; maxHour = 17; }
 
-            const displayHours = []; const displayLabels = [];
-            for (let i = minHour; i <= maxHour; i++) {
-                displayHours.push(hoursArray[i]);
-                const ampm = i >= 12 ? 'PM' : 'AM'; const hrFormat = i % 12 || 12;
-                displayLabels.push(`${hrFormat} ${ampm}`);
+                for (let i = minHour; i <= maxHour; i++) {
+                    displayHours.push(hoursArray[i]);
+                    const ampm = i >= 12 ? 'PM' : 'AM'; const hrFormat = i % 12 || 12;
+                    displayLabels.push(`${hrFormat} ${ampm}`);
+                }
+            } else {
+                // MULTI-DAY CHART (BY DATE)
+                let cDate = new Date(startDateObj);
+                while (cDate <= endDateObj) {
+                    const label = cDate.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'});
+                    displayLabels.push(label);
+                    
+                    const targetDd = String(cDate.getDate()).padStart(2, '0');
+                    const targetMm = String(cDate.getMonth() + 1).padStart(2, '0');
+                    const targetYy = String(cDate.getFullYear()).slice(-2);
+                    const targetStr = `${targetDd}.${targetMm}.${targetYy}`;
+                    
+                    let dayTotal = 0;
+                    valid.forEach(o => {
+                         const oDateStr = String(o.timestamp).trim().split(' ')[0];
+                         if (oDateStr === targetStr) {
+                             dayTotal += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
+                         }
+                    });
+                    displayHours.push(dayTotal);
+                    cDate.setDate(cDate.getDate() + 1);
+                }
             }
 
             if(salesChartObj) salesChartObj.destroy();
-            salesChartObj = new Chart(document.getElementById('salesChart'), { type:'line', data:{ labels: displayLabels, datasets:[{label:'Revenue/Hr (₹)', data: displayHours, borderColor:'#ff7700', backgroundColor:'rgba(255,119,0,0.1)', fill:true, tension:0.4}] }, options:{maintainAspectRatio:false} });
+            salesChartObj = new Chart(document.getElementById('salesChart'), { type:'line', data:{ labels: displayLabels, datasets:[{label:'Revenue (₹)', data: displayHours, borderColor:'#ff7700', backgroundColor:'rgba(255,119,0,0.1)', fill:true, tension:0.4}] }, options:{maintainAspectRatio:false} });
 
             let itemCounts = {}; 
             valid.forEach(o => {
@@ -1215,86 +1280,28 @@
             } else showToast("Wrong Password");
         }
 
-        // 1. Smart Cloud Fetcher for Monthly Revenue
-        async function calculateCloudMonthlyRevenue(currentMonth, currentYear) {
-            // If offline or no live URL, fallback to local storage
-            if (!navigator.onLine || !GOOGLE_WEB_APP_URL.startsWith("http")) {
-                let monthlyRev = 0;
-                const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-                history.forEach(o => {
-                    if (o.voided) return;
-                    let d = new Date(o.timestamp);
-                    if (isNaN(d.getTime()) && typeof o.timestamp === 'string') {
-                        const parts = o.timestamp.trim().split(' ')[0].split('.');
-                        if (parts.length === 3) d = new Date(parseInt("20" + parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-                    }
-                    if (!isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-                        monthlyRev += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
-                    }
-                });
-                return monthlyRev;
-            }
-
-            const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
-            const isCurrentMonth = (currentMonth === now.getMonth() && currentYear === now.getFullYear());
-            const maxDays = isCurrentMonth ? now.getDate() : new Date(currentYear, currentMonth + 1, 0).getDate();
+        // 1. Helper to get Monthly Revenue
+        function getMonthlyRevenue(currentMonth, currentYear) {
+            let monthlyRev = 0;
+            const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
             
-            const yy = String(currentYear).slice(-2);
-            const mm = String(currentMonth + 1).padStart(2, '0');
-            
-            let revenueCache = JSON.parse(localStorage.getItem('cloudRevenueCache') || '{}');
-            let totalRev = 0;
-            let daysToFetch = [];
-
-            // Determine which days need to be fetched from cloud
-            for (let d = 1; d <= maxDays; d++) {
-                const dd = String(d).padStart(2, '0');
-                const sheetDateStr = `${dd}.${mm}.${yy}`;
+            history.forEach(o => {
+                if (o.voided) return;
                 
-                // If it's a past date and we already cached it, use cache
-                if (d < now.getDate() && revenueCache[sheetDateStr] !== undefined) {
-                    totalRev += revenueCache[sheetDateStr];
-                } else {
-                    daysToFetch.push(sheetDateStr);
+                let d = new Date(o.timestamp);
+                // Safe parsing string fallback to strictly avoid "Invalid Date" evaluation errors
+                if (isNaN(d.getTime()) && typeof o.timestamp === 'string') {
+                    const parts = o.timestamp.trim().split(' ')[0].split('.');
+                    if (parts.length === 3) {
+                        d = new Date(parseInt("20" + parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                    }
                 }
-            }
-
-            // Fetch missing days from cloud
-            if (daysToFetch.length > 0) {
-                const fetchPromises = daysToFetch.map(async (sheetDateStr) => {
-                    try {
-                        const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
-                        const orders = await res.json();
-                        if (!Array.isArray(orders)) return { date: sheetDateStr, rev: 0 };
-                        
-                        let dayRev = 0;
-                        orders.forEach(o => {
-                            const isVoided = !!o.voided || String(o.tender || "").toUpperCase() === "VOIDED" || String(o.status || "").toUpperCase() === "VOIDED";
-                            if (!isVoided) {
-                                dayRev += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
-                            }
-                        });
-                        return { date: sheetDateStr, rev: dayRev };
-                    } catch(e) {
-                        return { date: sheetDateStr, rev: 0 }; // Ignore errors silently
-                    }
-                });
-
-                const results = await Promise.all(fetchPromises);
                 
-                results.forEach(result => {
-                    totalRev += result.rev;
-                    // Only cache past days. Never cache "today" because it keeps changing!
-                    const requestDay = parseInt(result.date.split('.')[0]);
-                    if (requestDay < now.getDate() || !isCurrentMonth) {
-                        revenueCache[result.date] = result.rev;
-                    }
-                });
-                
-                localStorage.setItem('cloudRevenueCache', JSON.stringify(revenueCache));
-            }
-
-            return totalRev;
+                if (!isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+                    monthlyRev += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
+                }
+            });
+            return monthlyRev;
         }
 
         // --- EXPENSES TRACKER ---
@@ -1313,17 +1320,11 @@
         }
 
         // 2. The Main Render Function for Expenses & P&L
-        async function renderExpenses() {
+        function renderExpenses() {
             const listEl = document.getElementById('expenseList');
             const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
             const currentMonth = now.getMonth();
             const currentYear = now.getFullYear();
-
-            // Set UI to loading state for Revenue calculation
-            document.getElementById('revTotal').innerHTML = `<span class="material-symbols-rounded spinner" style="font-size:16px;">sync</span>`;
-            document.getElementById('pnlStatus').innerText = `Calculating P&L...`;
-            document.getElementById('pnlSubtext').innerText = `Syncing month's revenue sheets...`;
-            document.getElementById('pnlAction').style.display = 'none';
 
             let totalExp = 0;
             let uniqueNames = new Set();
@@ -1362,8 +1363,8 @@
             dl.innerHTML = '';
             uniqueNames.forEach(n => dl.innerHTML += `<option value="${n}">`);
 
-            // Fetch and Calculate P&L Revenue
-            const monthlyRev = await calculateCloudMonthlyRevenue(currentMonth, currentYear);
+            // Calculate P&L
+            const monthlyRev = getMonthlyRevenue(currentMonth, currentYear);
             document.getElementById('revTotal').innerText = "₹" + monthlyRev;
 
             const netBalance = monthlyRev - totalExp;
@@ -1502,7 +1503,11 @@
         
         function openAdmin() { 
             document.getElementById('adminPanel').classList.add('open'); 
+            
+            // Default to today for "From" date, and leave "To" empty
             document.getElementById('adminDatePicker').value = new Date().toISOString().split('T')[0]; 
+            document.getElementById('adminDatePickerTo').value = ''; 
+            
             loadAdminData(); 
             if(!cloudForecastData) loadForecast();
             if(!cloudExpensesData) loadExpenses();
