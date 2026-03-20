@@ -274,7 +274,7 @@
                 <div style="display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; background: var(--bg-surface); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border);">
                     <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px;">
                         <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">From Date</span>
-                        <input type="date" id="adminDatePicker" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
+                        <input type="date" id="adminDatePickerFrom" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px;">
                         <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">To Date (Optional)</span>
@@ -309,11 +309,11 @@
                 
                 <div class="stats-grid" style="margin-bottom:10px;">
                     <div class="stat-card">
-                        <div>Monthly Expenses</div>
+                        <div id="expTitleLabel">Monthly Expenses</div>
                         <div class="stat-val" id="expTotal" style="color:#ef4444;">₹0</div>
                     </div>
                     <div class="stat-card">
-                        <div>Monthly Revenue</div>
+                        <div id="revTitleLabel">Monthly Revenue</div>
                         <div class="stat-val" id="revTotal" style="color:#10b981;">₹0</div>
                     </div>
                 </div>
@@ -327,10 +327,12 @@
                 <h3 style="margin-top: 10px; margin-bottom: 12px; color:var(--text-main);">This Month's Expenses</h3>
                 <div id="expenseList" style="display:flex; flex-direction:column; gap: 10px; max-height: 250px; overflow-y:auto; padding-right: 5px;"></div>
                 
-                <!-- NEW: Native PWA Install Button -->
-                <button id="pwaInstallBtn" class="checkout-btn" style="display:none; width:100%; margin-top: 15px; padding: 15px; background: #10b981; font-size: 1em; justify-content:center; align-items:center; gap:8px;" onclick="installPWA()">
-                    <span class="material-symbols-rounded">install_mobile</span> Install Native App
-                </button>
+                <div style="text-align:center; margin-top:20px; font-size:0.8em; color:var(--text-muted);">
+                    POS Version: <span id="verLabel"></span>
+                    <button id="pwaInstallBtn" class="checkout-btn" style="display:none; width:100%; margin-top: 15px; padding: 15px; background: #10b981; font-size: 1em; justify-content:center; align-items:center; gap:8px;" onclick="installPWA()">
+                        <span class="material-symbols-rounded">install_mobile</span> Install Native App
+                    </button>
+                </div>
             </div>
         </div>
     </aside>
@@ -427,43 +429,11 @@
         // CONFIG & SECRETS
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
+        const POS_VERSION = "2024.03.21.10";
 
         // ==========================================
-        // NEW: PWA INSTALL LOGIC
+        // CONSTANTS & GLOBALS
         // ==========================================
-        let deferredPrompt;
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            const btn = document.getElementById('pwaInstallBtn');
-            if (btn) btn.style.display = 'flex';
-        });
-
-        function installPWA() {
-            if (!deferredPrompt) return;
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    document.getElementById('pwaInstallBtn').style.display = 'none';
-                }
-                deferredPrompt = null;
-            });
-        }
-        // ==========================================
-
-        function playSuccessSound() {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator(); const gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.frequency.setValueAtTime(880, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-                osc.start(); osc.stop(ctx.currentTime + 0.3);
-            } catch(e){}
-        }
-
         const defaultMenu = {
             "Fried Options": [
                 { name: "Classic Fries", price: 49 }, { name: "Piri Piri Fries", price: 49 },
@@ -513,9 +483,55 @@
         let webhookInterval;
         let currentTransactionId = null;
 
-        // Global Cache for Cloud Forecasts & Expenses
         let cloudForecastData = null; 
         let cloudExpensesData = null;
+        let cloudOrdersData = [];
+        let deferredPrompt;
+
+        // ==========================================
+        // HELPERS & INITIALIZATION
+        // ==========================================
+        function safeParseDate(ts) {
+            if (!ts) return new Date();
+            const tsStr = String(ts).trim();
+            const dotMatch = tsStr.match(/^(\d{2})\.(\d{2})\.(\d{2,4})/);
+            if (dotMatch) {
+                const day = parseInt(dotMatch[1]);
+                const month = parseInt(dotMatch[2]) - 1;
+                let year = parseInt(dotMatch[3]);
+                if (year < 100) year += 2000;
+                return new Date(year, month, day);
+            }
+            const d = new Date(tsStr);
+            return isNaN(d.getTime()) ? new Date() : d;
+        }
+
+        function playSuccessSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator(); const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                osc.start(); osc.stop(ctx.currentTime + 0.3);
+            } catch(e){}
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); deferredPrompt = e;
+            const btn = document.getElementById('pwaInstallBtn');
+            if (btn) btn.style.display = 'flex';
+        });
+
+        function installPWA() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choice) => { 
+                if(choice.outcome==='accepted') document.getElementById('pwaInstallBtn').style.display='none'; 
+                deferredPrompt=null; 
+            });
+        }
 
         async function initApp() {
             populateCategoryList();
@@ -523,35 +539,20 @@
             window.addEventListener('online', handleOnlineSync);
             if(!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
             await fetchCloudMenu();
+            if(document.getElementById('verLabel')) document.getElementById('verLabel').innerText = POS_VERSION;
 
-            // ==========================================
-            // NEW: PWA MANIFEST & SERVICE WORKER INJECTION
-            // ==========================================
-            const manifest = {
-                "name": "Snack Attack POS",
-                "short_name": "Snack Attack",
-                "start_url": ".",
-                "display": "standalone",
-                "background_color": "#09090b",
-                "theme_color": "#ff7700",
-                "icons": [{
-                    "src": "https://cdn-icons-png.flaticon.com/512/3081/3081367.png",
-                    "sizes": "512x512",
-                    "type": "image/png",
-                    "purpose": "any maskable"
-                }]
-            };
+            // PWA Injection
+            const manifest = { "name": "Snack Attack POS", "short_name": "Snack Attack", "start_url": ".", "display": "standalone", "background_color": "#09090b", "theme_color": "#ff7700", "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/3081/3081367.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}] };
             const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
             document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
-
             const swCode = `self.addEventListener('fetch', function(e) { });`;
             const swBlob = new Blob([swCode], {type: 'application/javascript'});
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => console.log(err));
-            }
-            // ==========================================
+            if ('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => console.log(err));
         }
 
+        // ==========================================
+        // MENU & UI FUNCTIONS
+        // ==========================================
         async function fetchCloudMenu() {
             if (GOOGLE_WEB_APP_URL.includes("__PLACEHOLDER__")) return;
             try {
@@ -657,6 +658,9 @@
             });
         }
 
+        // ==========================================
+        // CART & CHECKOUT LOGIC
+        // ==========================================
         function addToBill(name) {
             if(navigator.vibrate) navigator.vibrate(30);
             let item;
@@ -919,7 +923,9 @@
 
         function cancelPayment() { stopWebhookPolling(); document.getElementById('paymentModal').classList.remove('open'); document.getElementById('overlayBackdrop').classList.remove('open'); }
 
-        /** --- CLOUD FIRST ADMIN DASHBOARD --- */
+        // ==========================================
+        // ADMIN DASHBOARD & DYNAMIC P&L LOGIC
+        // ==========================================
         function normalizeOrderData(o) {
             if (!o) return null;
             
@@ -964,7 +970,7 @@
         }
 
         async function loadAdminData() {
-            const fromDateVal = document.getElementById('adminDatePicker').value;
+            const fromDateVal = document.getElementById('adminDatePickerFrom').value;
             const toDateVal = document.getElementById('adminDatePickerTo').value;
             
             let startDateObj = fromDateVal ? new Date(fromDateVal) : new Date();
@@ -973,7 +979,7 @@
             if (endDateObj < startDateObj) endDateObj = new Date(startDateObj);
 
             const listEl = document.getElementById('adminOrderList');
-            listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching from Cloud...</div>`;
+            if (listEl) listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching from Cloud...</div>`;
 
             let allOrders = [];
             let daysToFetch = [];
@@ -1018,7 +1024,9 @@
                 }
             }
             
+            cloudOrdersData = allOrders; // Cache for P&L logic
             renderAdminDashboard(allOrders, startDateObj, endDateObj);
+            if (document.getElementById('sectExpenses').style.display !== 'none') renderExpenses();
         }
 
         function parseItemsToCart(itemsStr) {
@@ -1034,7 +1042,6 @@
             return tempCart;
         }
 
-        // ULTIMATE FALLBACK: Fixed custom format handling and "no orders" bug
         function getLocalOrdersForDate(targetStr, targetDateObj) {
             const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
             
@@ -1049,7 +1056,6 @@
                     return dObj.toDateString() === targetDateObj.toDateString();
                 }
                 
-                // Ultimate fallback for custom formats like "16.03.26" if it sneaks through
                 if (dateSection.includes('.')) {
                     const parts = dateSection.split('.');
                     if (parts.length === 3) {
@@ -1062,28 +1068,20 @@
         }
 
         function renderAdminDashboard(validOrdersList, startDateObj, endDateObj) {
+            const listEl = document.getElementById('adminOrderList');
+            if(!listEl) return;
             const valid = validOrdersList.filter(o => o && !o.voided);
             const totalRev = valid.reduce((s,o) => s + (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0), 0);
             
             document.getElementById('adminRev').innerText = "₹" + totalRev;
             document.getElementById('adminOrders').innerText = valid.length;
             
-            document.getElementById('adminOrderList').innerHTML = validOrdersList.map(o => {
+            listEl.innerHTML = validOrdersList.map(o => {
                 if (!o) return "";
                 const cleanTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
                 
-                // Display Date nicely in the list
-                let displayDate = "";
-                if (o.timestamp) {
-                    let dStr = String(o.timestamp).split(' ')[0];
-                    if (dStr.includes('.')) {
-                        let p = dStr.split('.');
-                        displayDate = `${p[0]}/${p[1]}`;
-                    } else {
-                        let d = new Date(o.timestamp);
-                        if (d.toString() !== "Invalid Date") displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
-                    }
-                }
+                const d = safeParseDate(o.timestamp);
+                const displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
 
                 return `
                     <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}; margin-bottom:10px; flex-wrap:wrap;">
@@ -1112,7 +1110,7 @@
             const displayLabels = [];
 
             if (!isMultiDay) {
-                // SINGLE DAY CHART (BY HOUR)
+                // SINGLE DAY CHART
                 let hoursArray = new Array(24).fill(0); let minHour = 24; let maxHour = 0;
                 valid.forEach(o => {
                     let hr = 0; const tsStr = String(o.timestamp || ""); const timeMatch = tsStr.match(/(\d{1,2}):\d{2}/);
@@ -1140,7 +1138,7 @@
                     displayLabels.push(`${hrFormat} ${ampm}`);
                 }
             } else {
-                // MULTI-DAY CHART (BY DATE)
+                // MULTI-DAY CHART
                 let cDate = new Date(startDateObj);
                 while (cDate <= endDateObj) {
                     const label = cDate.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'});
@@ -1182,154 +1180,123 @@
         }
 
         // ==========================================
-        // 1. Helper to get Monthly Revenue (EXACT OLD LOGIC)
+        // DYNAMIC EXPENSE / P&L MATH
         // ==========================================
-        function getMonthlyRevenue(currentMonth, currentYear) {
-            let monthlyRev = 0;
+        function getRangeRevenue(startDate, endDate) {
+            let total = 0;
             const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+            const combined = [...history, ...cloudOrdersData];
             
-            history.forEach(o => {
+            // Deduplicate local + cloud copies
+            const unique = Array.from(new Map(combined.map(o => [o.orderId, o])).values());
+            
+            unique.forEach(o => {
                 if (o.voided) return;
+                let d = safeParseDate(o.timestamp);
                 
-                let d = new Date(o.timestamp);
-                // Safe parsing string fallback to strictly avoid "Invalid Date" evaluation errors
-                if (isNaN(d.getTime()) && typeof o.timestamp === 'string') {
-                    const parts = o.timestamp.trim().split(' ')[0].split('.');
-                    if (parts.length === 3) {
-                        d = new Date(parseInt("20" + parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-                    }
-                }
-                
-                if (!isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-                    monthlyRev += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
+                if (d >= startDate && d <= new Date(endDate).setHours(23,59,59)) {
+                    total += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
                 }
             });
-            return monthlyRev;
+            return total;
         }
 
-        // --- EXPENSES TRACKER ---
         async function loadExpenses() {
             const listEl = document.getElementById('expenseList');
+            if(!listEl) return;
             listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching Expenses...</div>`;
-            
             if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getExpenses`);
                     cloudExpensesData = await res.json();
                 } catch(e) { cloudExpensesData = []; }
             } else { cloudExpensesData = []; }
-            
             renderExpenses();
         }
 
-        // ==========================================
-        // 2. The Main Render Function for Expenses & P&L (EXACT OLD LOGIC)
-        // ==========================================
         function renderExpenses() {
             const listEl = document.getElementById('expenseList');
-            const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
+            if(!listEl) return;
+            const now = new Date();
+            const fromDateInput = document.getElementById('adminDatePickerFrom').value;
+            const toDateInput = document.getElementById('adminDatePickerTo').value;
+            
+            let startDate, endDate;
+            
+            // Smart Default Logic
+            if (fromDateInput) {
+                startDate = new Date(fromDateInput);
+                document.getElementById('expTitleLabel').innerText = "Range Expenses";
+                document.getElementById('revTitleLabel').innerText = "Range Revenue";
+            } else {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                document.getElementById('expTitleLabel').innerText = "Monthly Expenses";
+                document.getElementById('revTitleLabel').innerText = "Monthly Revenue";
+            }
+            
+            endDate = toDateInput ? new Date(toDateInput) : now;
+            startDate.setHours(0,0,0,0);
 
             let totalExp = 0;
-            let uniqueNames = new Set();
             let listHtml = '';
-
-            // Combine cloud expenses and offline queue
             let offlineQueue = JSON.parse(localStorage.getItem('offlineExpenseQueue') || '[]');
             let allExpenses = [...(cloudExpensesData || []), ...offlineQueue];
 
             allExpenses.slice().reverse().forEach(e => {
-                let eDate = new Date(e.date || e.timestamp);
-                if (isNaN(eDate.getTime())) eDate = now; 
-
-                // Add to total ONLY if it's this month
-                if (eDate.getMonth() === currentMonth && eDate.getFullYear() === currentYear) {
+                const eDate = safeParseDate(e.date || e.timestamp);
+                if (eDate >= startDate && eDate <= new Date(endDate).setHours(23,59,59)) {
                     const amt = parseFloat(e.amount) || 0;
                     totalExp += amt;
+                    listHtml += `<div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <div><b>${e.name}</b><br><small style="color:var(--text-muted);">${eDate.toLocaleDateString('en-IN')}</small></div>
+                        <div style="font-weight:800; color:#ef4444;">-₹${amt}</div>
+                    </div>`;
                 }
-                
-                // Show ALL expenses in the list so history isn't lost
-                const amt = parseFloat(e.amount) || 0;
-                uniqueNames.add(e.name);
-                const catLabel = e.category && e.category !== "Uncategorized" ? `<span style="font-size: 0.75em; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${e.category}</span>` : '';
-                
-                listHtml += `
-                <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <div><b style="color:var(--primary);">${e.name}</b>${catLabel}<br><small style="color:var(--text-muted);">${eDate.toLocaleDateString('en-IN')}</small></div>
-                    <div style="font-weight:800; font-size:1.1em; color:#ef4444;">-₹${amt}</div>
-                </div>`;
             });
 
-            listEl.innerHTML = listHtml || `<div style="text-align:center; padding:20px; color:#888;">No expenses recorded.</div>`;
+            listEl.innerHTML = listHtml || `<div style="text-align:center; padding:20px; color:#888;">No expenses found for this window.</div>`;
             document.getElementById('expTotal').innerText = "₹" + totalExp;
 
-            const dl = document.getElementById('expenseSuggestions');
-            dl.innerHTML = '';
-            uniqueNames.forEach(n => dl.innerHTML += `<option value="${n}">`);
+            const periodRev = getRangeRevenue(startDate, endDate);
+            document.getElementById('revTotal').innerText = "₹" + periodRev;
 
-            // Calculate P&L
-            const monthlyRev = getMonthlyRevenue(currentMonth, currentYear);
-            document.getElementById('revTotal').innerText = "₹" + monthlyRev;
-
-            const netBalance = monthlyRev - totalExp;
+            const netBalance = periodRev - totalExp;
             const pnlWidget = document.getElementById('pnlWidget');
             const pnlStatus = document.getElementById('pnlStatus');
             const pnlSubtext = document.getElementById('pnlSubtext');
             const pnlAction = document.getElementById('pnlAction');
-
-            const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-            const currentDay = now.getDate();
-            const daysRemaining = (daysInCurrentMonth - currentDay) + 1;
-
             pnlAction.style.display = 'block';
 
+            const daysDiff = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1);
+
             if (netBalance < 0) {
-                // Deficit Logic & Target Setting
                 const deficit = Math.abs(netBalance);
                 pnlWidget.style.borderColor = "rgba(239, 68, 68, 0.4)";
                 pnlWidget.style.backgroundColor = "rgba(239, 68, 68, 0.05)";
                 pnlStatus.style.color = "#ef4444";
                 pnlStatus.innerText = `Deficit: -₹${deficit}`;
-
-                const dailyNeeded = Math.ceil(deficit / daysRemaining);
-                pnlSubtext.innerText = `You need ₹${dailyNeeded}/day for the remaining ${daysRemaining} days to break even.`;
-                
-                // Smart Target: Assuming a 49rs item is highly profitable (e.g., Virjin Mojito)
-                const mojitosNeeded = Math.ceil(deficit / 49);
-                pnlAction.innerHTML = `🎯 <b>Action Plan:</b> Sell just ${mojitosNeeded} extra Mojitos (₹49) to completely cover this deficit!`;
-                pnlAction.style.color = "#f4f4f5";
+                pnlSubtext.innerText = `Averaging ₹${Math.floor(deficit/daysDiff)}/day short in this window.`;
+                pnlAction.innerHTML = `🎯 <b>Action:</b> Sell ${Math.ceil(deficit/49)} extra Mojitos to reach break-even!`;
             } else {
-                // Profit Logic & Forecasting
                 pnlWidget.style.borderColor = "rgba(16, 185, 129, 0.4)";
                 pnlWidget.style.backgroundColor = "rgba(16, 185, 129, 0.05)";
                 pnlStatus.style.color = "#10b981";
                 pnlStatus.innerText = `Net Profit: +₹${netBalance}`;
-
-                const avgProfit = Math.floor(netBalance / currentDay);
-                pnlSubtext.innerText = `Averaging ₹${avgProfit}/day in pure profit this month.`;
-
-                // End of Month Forecast
-                const forecastedEOM = Math.floor(avgProfit * daysInCurrentMonth);
-                pnlAction.innerHTML = `📈 <b>EOM Forecast:</b> At this rate, you'll finish the month with ₹${forecastedEOM} profit.`;
-                pnlAction.style.color = "#10b981";
+                pnlSubtext.innerText = `Averaging ₹${Math.floor(netBalance/daysDiff)}/day profit.`;
+                pnlAction.innerHTML = "📈 <b>Success:</b> Maintain these volumes to keep margins high!";
             }
         }
 
-        // 3. Upgraded Save Expense (with Offline Support)
         async function saveExpense() {
-            const category = document.getElementById('expCategoryInput').value;
+            const cat = document.getElementById('expCategoryInput').value;
             const name = document.getElementById('expNameInput').value.trim();
             const amount = parseFloat(document.getElementById('expAmountInput').value);
             
             if(!name || isNaN(amount)) { showToast("Enter Name and valid Amount"); return; }
 
             const expensePayload = { 
-                action: 'saveExpense', 
-                category: category, 
-                name: name, 
-                amount: amount, 
-                timestamp: new Date().toISOString() 
+                action: 'saveExpense', category: cat, name: name, 
+                amount: amount, timestamp: new Date().toISOString() 
             };
 
             document.getElementById('addExpenseModal').classList.remove('open');
@@ -1339,31 +1306,23 @@
             if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 showToast("Saving Expense to Cloud...");
                 try {
-                    await fetch(GOOGLE_WEB_APP_URL, {
-                        method: 'POST',
-                        body: JSON.stringify(expensePayload)
-                    });
+                    await fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(expensePayload) });
                     showToast("Expense Saved ✓");
-                    // Refresh data from cloud to ensure sync
                     loadExpenses(); 
-                } catch(e) { 
-                    saveExpenseOffline(expensePayload);
-                }
+                } catch(e) { saveExpenseOffline(expensePayload); }
             } else { 
                 saveExpenseOffline(expensePayload);
             }
         }
 
-        // Helper for offline expenses
         function saveExpenseOffline(payload) {
             let queue = JSON.parse(localStorage.getItem('offlineExpenseQueue') || '[]');
             queue.push(payload);
             localStorage.setItem('offlineExpenseQueue', JSON.stringify(queue));
             showToast("Saved Expense Offline ✓");
-            renderExpenses(); // Re-render to show the offline expense immediately
+            renderExpenses();
         }
 
-        // --- REVAMPED PREP FORECAST ---
         async function loadForecast() {
             const listEl = document.getElementById('forecastList');
             const dayNum = parseInt(document.getElementById('forecastDay').value);
@@ -1383,7 +1342,6 @@
 
             const dayCounts = cloudForecastData.daysCount[dayNum] || 1;
             const itemsObj = cloudForecastData[dayNum] || {};
-            
             let data = Object.entries(itemsObj).map(([n, q]) => ({ n, v: Math.ceil(q / dayCounts) })).sort((a,b)=>b.v-a.v);
             
             if (data.length === 0) {
@@ -1399,6 +1357,145 @@
             `).join('');
         }
 
+        // --- EDIT, INVOICE, AND PRINT UTILS ---
+        async function editOrder(orderId) {
+            showToast("Fetching order from Cloud...");
+            closeAllPanels(); 
+            let order = null;
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
+                try {
+                    const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
+                    const cloudOrder = await res.json();
+                    if (!cloudOrder.error) { order = cloudOrder; }
+                } catch(e) { console.warn("Cloud fetch failed", e); }
+            }
+            if (!order) {
+                const h = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+                order = h.find(o => o.orderId === orderId);
+            }
+            if (!order) { showToast("Order missing from memory & cloud."); return; }
+            order = normalizeOrderData(order); 
+            
+            editingOrderId = order.orderId;
+            editingOrderTimestamp = order.timestamp;
+            currentBill = order.cart && order.cart.length > 0 ? JSON.parse(JSON.stringify(order.cart)) : parseItemsToCart(order.items);
+            currentTender = (order.tender || 'upi').toLowerCase();
+            document.getElementById('custName').value = order.customerName || "";
+            document.getElementById('custPhone').value = order.customerPhone || "";
+            document.getElementById('parcelToggle').checked = order.parcelCharge > 0;
+            
+            openCart(); showToast("Edit Mode Active");
+        }
+
+        async function showInvoice(orderId) {
+            let order = null;
+            if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
+                showToast("Fetching invoice from Cloud...");
+                try {
+                    const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrder&orderId=${orderId}`);
+                    const cloudOrder = await res.json();
+                    if (!cloudOrder.error) { order = cloudOrder; }
+                } catch(e) {}
+            }
+            if (!order) {
+                const h = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+                order = h.find(o => o.orderId === orderId);
+            }
+            if (!order) { showToast("Order missing from memory & cloud."); return; }
+            order = normalizeOrderData(order); 
+            
+            const cartToUse = order.cart && order.cart.length > 0 ? order.cart : parseItemsToCart(order.items);
+            const receiptText = generateReceipt(order.orderId, cartToUse, parseFloat(order.total), order.tender, order.timestamp);
+            
+            document.getElementById('invoiceText').innerText = receiptText;
+            document.getElementById('invoiceModal').classList.add('open');
+            document.getElementById('overlayBackdrop').classList.add('open');
+        }
+
+        function generateReceipt(orderId, cart, total, tender, timestamp) {
+            function padRight(text,len){ return text + " ".repeat(Math.max(len - text.length,0)); }
+            function padLeft(text,len){ return " ".repeat(Math.max(len - text.length,0)) + text; }
+            let receipt = "SNACK ATTACK\n--------------------------------\n\n";
+            receipt += "Bill No      : " + (orderId || "N/A") + "\n";
+            
+            let displayDate = timestamp;
+            try {
+                const tsStr = String(timestamp);
+                let dd="00", mm="00", yy="0000", hh="12", min="00", ampm="am";
+                const parts = tsStr.split(' ');
+                if (parts.length >= 2 && parts[0].includes('.')) {
+                    const dateParts = parts[0].split('.');
+                    if (dateParts.length === 3) {
+                        dd = dateParts[0].padStart(2, '0');
+                        mm = dateParts[1].padStart(2, '0');
+                        yy = dateParts[2].length === 2 ? "20" + dateParts[2] : dateParts[2];
+                        const timeStr = parts.slice(1).join(' ');
+                        const timeMatch = timeStr.match(/(\d+):(\d+)/);
+                        if (timeMatch) {
+                            let h = parseInt(timeMatch[1], 10);
+                            min = timeMatch[2].padStart(2, '0');
+                            if (timeStr.toLowerCase().includes('pm') || timeStr.toLowerCase().includes('am')) {
+                                ampm = timeStr.toLowerCase().includes('pm') ? 'pm' : 'am';
+                                if (ampm === 'pm' && h < 12) h += 12; 
+                                if (ampm === 'am' && h === 12) h = 0;
+                            }
+                            ampm = h >= 12 ? 'pm' : 'am';
+                            h = h % 12; h = h ? h : 12; 
+                            hh = String(h).padStart(2, '0');
+                        }
+                        displayDate = `${dd}/${mm}/${yy} - ${hh}.${min} ${ampm}`;
+                    }
+                } 
+                else {
+                    let dObj = new Date(timestamp);
+                    if (dObj.toString() !== "Invalid Date") {
+                        dd = String(dObj.getDate()).padStart(2, '0');
+                        mm = String(dObj.getMonth() + 1).padStart(2, '0');
+                        yy = dObj.getFullYear();
+                        let h = dObj.getHours();
+                        min = String(dObj.getMinutes()).padStart(2, '0');
+                        ampm = h >= 12 ? 'pm' : 'am';
+                        h = h % 12; h = h ? h : 12; 
+                        displayDate = `${dd}/${mm}/${yy} - ${String(h).padStart(2,'0')}.${min} ${ampm}`;
+                    }
+                }
+            } catch(e) {}
+            
+            receipt += "Date & Time  : " + displayDate + "\n\n";
+            receipt += "--------------------------------\n";
+            receipt += padRight("Item",16) + padLeft("Qty",5) + padLeft("Price",7) + padLeft("Amt",8) + "\n";
+            receipt += "--------------------------------\n";
+            let subtotal = 0;
+            cart.forEach(i=>{
+                let p = parseFloat(i.price) || 0; let amt = p * i.qty; subtotal += amt;
+                receipt += padRight(i.name.substring(0,16),16) + padLeft(i.qty.toString(),5) + padLeft(p.toFixed(2),7) + padLeft(amt.toFixed(2),8) + "\n";
+            });
+            receipt += "--------------------------------\n";
+            receipt += padRight("Subtotal",28) + padLeft(subtotal.toFixed(2),8) + "\n";
+            let discount = subtotal - total;
+            if(discount > 0){ receipt += padRight("Discount",28) + padLeft("-"+discount.toFixed(2),8) + "\n"; }
+            receipt += "--------------------------------\n";
+            receipt += padRight("Total",28) + padLeft(total.toFixed(2),8) + "\n\n";
+            receipt += "Pay Mode : " + (tender || 'CASH').toUpperCase() + "\n\nThank you visit again";
+            return receipt;
+        }
+
+        function promptVoid(id) { currentVoidOrderId = id; document.getElementById('voidOrderIdTxt').innerText = id; document.getElementById('voidAuthModal').classList.add('open'); document.getElementById('voidPassInput').value = ''; document.getElementById('voidPassInput').focus(); }
+        
+        function executeVoidOrder() {
+            if(document.getElementById('voidPassInput').value === '1234') {
+                let h = JSON.parse(localStorage.getItem('orderHistory'));
+                let target = h.find(o => o.orderId === currentVoidOrderId);
+                if (target) target.voided = true;
+                localStorage.setItem('orderHistory', JSON.stringify(h));
+                if(GOOGLE_WEB_APP_URL.startsWith("http")) fetch(GOOGLE_WEB_APP_URL, { method:'POST', body:JSON.stringify({action:'voidOrder', orderId:currentVoidOrderId, timestamp:target?target.timestamp:new Date().toISOString()}) });
+                loadAdminData();
+                document.getElementById('voidAuthModal').classList.remove('open');
+                showToast("Order Voided");
+            } else showToast("Wrong Password");
+        }
+
+        // --- GLOBAL UTILS ---
         function showToast(m) { const t = document.getElementById('toast'); document.getElementById('toastMsg').innerText = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
         function toggleSearch() { document.getElementById('searchContainer').classList.toggle('expanded'); document.getElementById('searchInput').focus(); }
         function closeSearchIfEmpty() { if(!document.getElementById('searchInput').value) document.getElementById('searchContainer').classList.remove('expanded'); }
@@ -1408,14 +1505,10 @@
         
         function openAdmin() { 
             document.getElementById('adminPanel').classList.add('open'); 
-            
-            // Default to today for "From" date, and leave "To" empty
-            document.getElementById('adminDatePicker').value = new Date().toISOString().split('T')[0]; 
+            document.getElementById('adminDatePickerFrom').value = ''; 
             document.getElementById('adminDatePickerTo').value = ''; 
-            
             loadAdminData(); 
             if(!cloudForecastData) loadForecast();
-            if(!cloudExpensesData) loadExpenses();
         }
         
         function switchAdminTab(t) { 
@@ -1423,6 +1516,8 @@
             document.getElementById('sectOverview').style.display = t === 'overview' ? 'block' : 'none'; 
             document.getElementById('sectForecast').style.display = t === 'forecast' ? 'block' : 'none'; 
             document.getElementById('sectExpenses').style.display = t === 'expenses' ? 'block' : 'none'; 
+            if (t === 'expenses') loadExpenses();
+            if (t === 'forecast') loadForecast();
         }
         
         function openCart() { document.getElementById('cartPanel').classList.add('open'); document.getElementById('overlayBackdrop').classList.add('open'); renderCart(); }
