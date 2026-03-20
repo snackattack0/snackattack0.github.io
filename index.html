@@ -273,12 +273,12 @@
             <div id="sectOverview">
                 <div style="display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; background: var(--bg-surface); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border);">
                     <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px;">
-                        <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">From Date</span>
+                        <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">Target Date (To)</span>
                         <input type="date" id="adminDatePicker" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px;">
-                        <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">To Date (Optional)</span>
-                        <input type="date" id="adminDatePickerTo" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
+                        <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">Look Back From (Optional)</span>
+                        <input type="date" id="adminDatePickerFrom" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
                     </div>
                 </div>
 
@@ -908,13 +908,35 @@
         }
 
         async function loadAdminData() {
-            const fromDateVal = document.getElementById('adminDatePicker').value;
-            const toDateVal = document.getElementById('adminDatePickerTo').value;
+            const toDateVal = document.getElementById('adminDatePicker').value;
+            const fromDateVal = document.getElementById('adminDatePickerFrom').value;
             
-            let startDateObj = fromDateVal ? new Date(fromDateVal) : new Date();
-            let endDateObj = toDateVal ? new Date(toDateVal) : new Date(startDateObj);
+            let endDateObj, startDateObj, sheetDateStr;
+            
+            if (toDateVal) {
+                const parts = toDateVal.split('-');
+                const yy = parts[0].slice(-2);
+                const mm = parts[1];
+                const dd = parts[2];
+                sheetDateStr = `${dd}.${mm}.${yy}`;
+                endDateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            } else {
+                endDateObj = new Date();
+                const dd = String(endDateObj.getDate()).padStart(2, '0');
+                const mm = String(endDateObj.getMonth() + 1).padStart(2, '0');
+                const yy = String(endDateObj.getFullYear()).slice(-2);
+                sheetDateStr = `${dd}.${mm}.${yy}`;
+            }
 
-            if (endDateObj < startDateObj) endDateObj = new Date(startDateObj);
+            if (fromDateVal) {
+                const parts = fromDateVal.split('-');
+                startDateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            } else {
+                startDateObj = new Date(endDateObj);
+            }
+
+            // Ensure start date isn't after end date
+            if (startDateObj > endDateObj) startDateObj = new Date(endDateObj);
 
             const listEl = document.getElementById('adminOrderList');
             listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching from Cloud...</div>`;
@@ -951,7 +973,6 @@
 
                 const results = await Promise.all(fetchPromises);
                 
-                // Add orders backwards so the newest days are at the top of the array
                 for (let i = results.length - 1; i >= 0; i--) {
                     let dayOrders = results[i].slice().reverse();
                     allOrders = allOrders.concat(dayOrders);
@@ -1504,9 +1525,9 @@
         function openAdmin() { 
             document.getElementById('adminPanel').classList.add('open'); 
             
-            // Default to today for "From" date, and leave "To" empty
+            // Default to today for "To" date (primary), and leave "From" empty
             document.getElementById('adminDatePicker').value = new Date().toISOString().split('T')[0]; 
-            document.getElementById('adminDatePickerTo').value = ''; 
+            document.getElementById('adminDatePickerFrom').value = ''; 
             
             loadAdminData(); 
             if(!cloudForecastData) loadForecast();
