@@ -329,8 +329,8 @@
                 
                 <div style="text-align:center; margin-top:20px; font-size:0.8em; color:var(--text-muted);">
                     POS Version: <span id="verLabel"></span>
-                    <!-- Native PWA Install Button (Hidden by default, shown by JS when ready) -->
-                    <button id="pwaInstallBtn" class="checkout-btn" style="display:none; width:100%; margin-top: 15px; padding: 15px; background: #10b981; font-size: 1em; display:none; justify-content:center; align-items:center; gap:8px;" onclick="installPWA()">
+                    <!-- Native PWA Install Button -->
+                    <button id="pwaInstallBtn" class="checkout-btn" style="display:none; width:100%; margin-top: 15px; padding: 15px; background: #10b981; font-size: 1em; justify-content:center; align-items:center; gap:8px;" onclick="installPWA()">
                         <span class="material-symbols-rounded">install_mobile</span> Install Native App
                     </button>
                 </div>
@@ -430,7 +430,6 @@
         // CONFIG & SECRETS
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
-        const POS_VERSION = "2024.03.21.04"; 
 
         function playSuccessSound() {
             try {
@@ -496,32 +495,26 @@
         // Global Cache for Cloud Forecasts & Expenses
         let cloudForecastData = null; 
         let cloudExpensesData = null;
-        let cloudOrdersData = [];
-
-        // PWA Install Variables
+        
+        // PWA Install Prompt
         let deferredPrompt;
 
-        function safeParseDate(ts) {
-            if (!ts) return new Date();
-            const tsStr = String(ts).trim();
-            const dotMatch = tsStr.match(/^(\d{2})\.(\d{2})\.(\d{2,4})/);
-            if (dotMatch) {
-                const day = parseInt(dotMatch[1]);
-                const month = parseInt(dotMatch[2]) - 1;
-                let year = parseInt(dotMatch[3]);
-                if (year < 100) year += 2000;
-                const timeMatch = tsStr.match(/(\d{1,2}):(\d{2})/);
-                if (timeMatch) {
-                    let hour = parseInt(timeMatch[1]);
-                    const min = parseInt(timeMatch[2]);
-                    if (tsStr.toUpperCase().includes('PM') && hour < 12) hour += 12;
-                    if (tsStr.toUpperCase().includes('AM') && hour === 12) hour = 0;
-                    return new Date(year, month, day, hour, min);
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('pwaInstallBtn');
+            if (btn) btn.style.display = 'flex';
+        });
+
+        function installPWA() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    document.getElementById('pwaInstallBtn').style.display = 'none';
                 }
-                return new Date(year, month, day);
-            }
-            const d = new Date(tsStr);
-            return isNaN(d.getTime()) ? new Date() : d;
+                deferredPrompt = null;
+            });
         }
 
         async function initApp() {
@@ -530,7 +523,6 @@
             window.addEventListener('online', handleOnlineSync);
             if(!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
             await fetchCloudMenu();
-            if(document.getElementById('verLabel')) document.getElementById('verLabel').innerText = POS_VERSION;
 
             // Initialize Dynamic PWA Manifest
             const manifest = {
@@ -547,28 +539,15 @@
                     "purpose": "any maskable"
                 }]
             };
-            const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-            document.getElementById('manifest-link').href = URL.createObjectURL(blob);
-        }
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+            document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
 
-        // Listen for the Native App Install prompt
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            // Reveal the install button in the Admin Panel
-            const btn = document.getElementById('pwaInstallBtn');
-            if (btn) btn.style.display = 'flex';
-        });
-
-        function installPWA() {
-            if (!deferredPrompt) return;
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    document.getElementById('pwaInstallBtn').style.display = 'none';
-                }
-                deferredPrompt = null;
-            });
+            // Register dummy Service Worker to satisfy PWA install criteria
+            const swCode = `self.addEventListener('fetch', function(e) { });`;
+            const swBlob = new Blob([swCode], {type: 'application/javascript'});
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => console.log(err));
+            }
         }
 
         async function fetchCloudMenu() {
@@ -1115,9 +1094,18 @@
                 if (!o) return "";
                 const cleanTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
                 
-                // Display Date nicely in the list utilizing safeParseDate
-                const d = safeParseDate(o.timestamp);
-                const displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+                // Display Date nicely in the list
+                let displayDate = "";
+                if (o.timestamp) {
+                    let dStr = String(o.timestamp).split(' ')[0];
+                    if (dStr.includes('.')) {
+                        let p = dStr.split('.');
+                        displayDate = `${p[0]}/${p[1]}`;
+                    } else {
+                        let d = new Date(o.timestamp);
+                        if (d.toString() !== "Invalid Date") displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+                    }
+                }
 
                 return `
                     <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}; margin-bottom:10px; flex-wrap:wrap;">
@@ -1587,9 +1575,9 @@
         function openAdmin() { 
             document.getElementById('adminPanel').classList.add('open'); 
             
-            // Default to today for "To" date (primary), and leave "From" empty
+            // Default to today for "From" date, and leave "To" empty
             document.getElementById('adminDatePicker').value = new Date().toISOString().split('T')[0]; 
-            document.getElementById('adminDatePickerFrom').value = ''; 
+            document.getElementById('adminDatePickerTo').value = ''; 
             
             loadAdminData(); 
             if(!cloudForecastData) loadForecast();
