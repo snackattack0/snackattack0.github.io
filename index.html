@@ -475,7 +475,7 @@
         // ==========================================
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
-        const POS_VERSION = "2024.03.21.24"; 
+        const POS_VERSION = "2024.03.21.25"; 
 
         const defaultMenu = {
             "Fried Options": [
@@ -579,16 +579,17 @@
             if (!ts) return new Date();
             const str = String(ts).trim();
 
-            // 1. Prioritize Cloud Standard (YYYY-MM-DD HH:mm:ss AM/PM)
-            const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):?(\d{2})?\s*(AM|PM|am|pm)?/i);
-            if (isoMatch) {
-                let year = parseInt(isoMatch[1]);
-                let month = parseInt(isoMatch[2]) - 1;
-                let day = parseInt(isoMatch[3]);
-                let hour = parseInt(isoMatch[4]);
-                let min = parseInt(isoMatch[5]);
-                let sec = isoMatch[6] ? parseInt(isoMatch[6]) : 0;
-                let ampm = isoMatch[7] ? isoMatch[7].toLowerCase() : null;
+            const match = str.match(/^(\d{2})\.(\d{2})\.(\d{2})\s+(\d{1,2}):(\d{2}):?(\d{2})?\s*(AM|PM)?/i);
+
+            if (match) {
+                let day = parseInt(match[1]);
+                let month = parseInt(match[2]) - 1;
+                let year = 2000 + parseInt(match[3]);
+
+                let hour = parseInt(match[4]);
+                let min = parseInt(match[5]);
+                let sec = match[6] ? parseInt(match[6]) : 0;
+                let ampm = match[7] ? match[7].toLowerCase() : null;
 
                 if (ampm === "pm" && hour < 12) hour += 12;
                 if (ampm === "am" && hour === 12) hour = 0;
@@ -596,28 +597,7 @@
                 return new Date(year, month, day, hour, min, sec);
             }
 
-            // 2. Legacy/Local Storage Format (dd.MM.yy hh:mm:ss AM/PM)
-            const match = str.match(/^(\d{2})\.(\d{2})\.(\d{2,4})(?:\s+(\d{1,2}):(\d{2}):?(\d{2})?\s*(AM|PM|am|pm)?)?/i);
-            if (match) {
-                let day = parseInt(match[1]);
-                let month = parseInt(match[2]) - 1;
-                let year = match[3].length === 2 ? 2000 + parseInt(match[3]) : parseInt(match[3]);
-                
-                if (match[4]) {
-                    let hour = parseInt(match[4]);
-                    let min = parseInt(match[5]);
-                    let sec = match[6] ? parseInt(match[6]) : 0;
-                    let ampm = match[7] ? match[7].toLowerCase() : null;
-
-                    if (ampm === "pm" && hour < 12) hour += 12;
-                    if (ampm === "am" && hour === 12) hour = 0;
-
-                    return new Date(year, month, day, hour, min, sec);
-                }
-                return new Date(year, month, day);
-            }
-
-            // 3. Fallback for native browser strings
+            // fallback
             const d = new Date(str);
             return isNaN(d.getTime()) ? new Date() : d;
         }
@@ -661,11 +641,13 @@
                   if (event.request.method !== 'GET') return;
                   const url = event.request.url;
 
+                  // CRITICAL FIX: Always bypass the cache for Google Apps Script
                   if (url.includes('script.google.com') || url.includes('script.googleusercontent.com')) {
                     event.respondWith(fetch(event.request));
                     return;
                   }
 
+                  // NETWORK-FIRST STRATEGY for UI logic
                   event.respondWith(
                     fetch(event.request).then((networkResponse) => {
                       if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
@@ -683,6 +665,7 @@
                 
                 try {
                     navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => {
+                        // Fallback to standard file if blob protocol is blocked by security policy
                         navigator.serviceWorker.register('./sw.js').catch(e => console.log("SW blocked by environment."));
                     });
                 } catch (e) {}
@@ -1074,6 +1057,8 @@
         // CRITICAL FIX 4: Standardize Timestamps
         function normalizeOrderData(o) {
             if (!o) return null;
+            o.timestamp = safeParseDate(o.timestamp).toISOString();
+
             const rawTotal = String(o.total || "0").trim();
             const rawTender = String(o.tender || "").trim();
             const tenderAsNum = Number(rawTender.replace(/[^0-9.-]+/g, ""));
@@ -1111,6 +1096,7 @@
             let startDate = new Date();
             let endDate = new Date();
 
+            // FIXED MATH: Absolute day subtraction ensures it doesn't break on 31-day months
             if (val === 'week') startDate.setDate(now.getDate() - 7);
             else if (val === 'month') startDate.setDate(now.getDate() - 30);
             else if (val === '3months') startDate.setDate(now.getDate() - 90);
@@ -1157,7 +1143,7 @@
             let fetchStartDate = new Date(startDateObj);
             if (range.selection === 'today') {
                 fetchStartDate = new Date();
-                fetchStartDate.setDate(fetchStartDate.getDate() - 30); 
+                fetchStartDate.setDate(fetchStartDate.getDate() - 30); // Fetch last 30 days for expenses logic seamlessly
             }
 
             const listEl = document.getElementById('adminOrderList');
@@ -1181,18 +1167,21 @@
                 let batchFailed = false;
                 
                 try {
+                    // Try the new High-Speed Batch API first
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrdersBatch&dates=${daysToFetch.join(',')}`);
                     const rawOrders = await res.json();
                     
                     if (Array.isArray(rawOrders)) {
                         allOrders = rawOrders.map(normalizeOrderData).filter(Boolean);
                     } else {
+                        // If it's not an array, they didn't deploy the new Google Script. Trigger fallback.
                         batchFailed = true;
                     }
                 } catch(e) {
                     batchFailed = true;
                 }
                 
+                // BACKWARDS COMPATIBILITY: Legacy chunked fetch
                 if (batchFailed) {
                     console.warn("Batch API not found on server. Falling back to legacy chunked fetching.");
                     const batchSize = 5;
@@ -1223,7 +1212,7 @@
             
             allOrders.sort((a,b) => safeParseDate(b.timestamp).getTime() - safeParseDate(a.timestamp).getTime());
             
-            cloudOrdersData = allOrders;
+            cloudOrdersData = allOrders; // Cache for P&L logic
             renderAdminDashboard(allOrders, startDateObj, endDateObj);
             if (document.getElementById('sectExpenses').style.display !== 'none') renderExpenses();
         }
@@ -1285,6 +1274,7 @@
                 const d = safeParseDate(o.timestamp);
                 const displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
                 
+                // Extra time display
                 let timeStr = "";
                 if(d.getHours() || d.getMinutes()) {
                     timeStr = " " + d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'});
