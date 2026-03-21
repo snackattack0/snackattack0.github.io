@@ -15,7 +15,7 @@
     <style>
         :root {
             --bg-base: #09090b;
-            --bg-surface: rgba(24, 24, 27, 0.4); /* Glassmorphism Base */
+            --bg-surface: rgba(24, 24, 27, 0.4);
             --bg-surface-solid: #18181b;
             --bg-surface-hover: rgba(39, 39, 42, 0.8);
             
@@ -50,13 +50,12 @@
             height: 100vh;
             height: 100dvh; 
             overflow: hidden; font-size: 15px; 
-            color-scheme: dark; /* Forces native date pickers into dark mode */
+            color-scheme: dark;
         }
 
         h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.5px; }
         button, input, select { font-family: 'Outfit', sans-serif; outline: none; }
 
-        /* Unified Modern Input & Select Styling */
         .input-modern { 
             width: 100%; background: var(--bg-surface); border: 1px solid var(--border); 
             color: var(--text-main); padding: 14px 16px; border-radius: var(--radius-md); 
@@ -65,14 +64,10 @@
         }
         .input-modern:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-glow); }
         
-        /* Custom Dropdown Arrow for Selects */
         select.input-modern {
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 16px center;
-            background-size: 16px;
-            padding-right: 40px;
+            background-repeat: no-repeat; background-position: right 16px center; background-size: 16px; padding-right: 40px;
         }
 
         .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100vh; height: 100dvh; }
@@ -89,12 +84,9 @@
         .slide-panel { 
             position: fixed; top: 0; right: -100%; bottom: 0; width: 100%; 
             background-color: rgba(24, 24, 27, 0.8) !important; 
-            backdrop-filter: blur(24px); 
-            -webkit-backdrop-filter: blur(24px);
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
             display: flex; flex-direction: column; z-index: 100; 
-            box-shadow: -10px 0 40px rgba(0,0,0,0.5); 
-            transition: right 0.5s cubic-bezier(0.2, 0, 0, 1); 
-            border-left: 1px solid var(--border); 
+            box-shadow: -10px 0 40px rgba(0,0,0,0.5); transition: right 0.5s cubic-bezier(0.2, 0, 0, 1); border-left: 1px solid var(--border); 
         }
         .slide-panel.open { right: 0 !important; }
         .cart-panel { max-width: 420px; }
@@ -102,14 +94,10 @@
 
         .payment-modal { 
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); 
-            background: rgba(24, 24, 27, 0.9) !important; 
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(24, 24, 27, 0.9) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             padding: 24px; border-radius: var(--radius-lg); z-index: 110; 
             box-shadow: 0 20px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column; 
-            align-items: center; width: 90%; max-width: 380px; opacity: 0; 
-            pointer-events: none; transition: var(--transition-bounce); border: 1px solid var(--border); 
-            text-align: center; max-height: 90vh; overflow-y: auto;
+            align-items: center; width: 90%; max-width: 380px; opacity: 0; pointer-events: none; transition: var(--transition-bounce); border: 1px solid var(--border); text-align: center; max-height: 90vh; overflow-y: auto;
         }
         .payment-modal.open { opacity: 1 !important; transform: translate(-50%, -50%) scale(1) !important; pointer-events: auto !important; }
 
@@ -180,10 +168,21 @@
 
         .admin-content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
         
-        /* Modern Pill Tabs for Admin */
-        .admin-tabs { display: flex; background: var(--bg-base); border-radius: var(--radius-pill); padding: 4px; width: 100%; margin-bottom: 8px; border: 1px solid var(--border); }
-        .admin-tab { flex: 1; padding: 12px 8px; text-align: center; color: var(--text-muted); cursor: pointer; font-weight: 600; border-radius: var(--radius-pill); transition: 0.2s; border: none; font-size: 0.95em; }
-        .admin-tab.active { background: var(--bg-surface-hover); color: var(--text-main); box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        .tender-tabs, .admin-tabs { display: flex; background: rgba(0,0,0,0.4); border-radius: var(--radius-pill); padding: 4px; width: 100%; border: 1px solid var(--border); }
+        .tender-tabs { margin: 16px 0; }
+        .admin-tabs { margin-bottom: 8px; }
+        
+        .tender-tab, .admin-tab { flex: 1; padding: 12px 8px; text-align: center; border-radius: var(--radius-pill); cursor: pointer; font-weight: 600; color: var(--text-muted); transition: var(--transition-bounce); border: none; font-size: 0.95em; }
+        .tender-tab.active, .admin-tab.active { background: var(--primary-gradient); color: #fff; box-shadow: 0 4px 15px var(--primary-glow); transform: scale(1.02); }
+
+        /* Transparent/Inverted Glass QR Code */
+        .qr-box { background: rgba(0, 0, 0, 0.25); box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.5); padding: 16px; border-radius: 24px; margin: 15px 0; width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .qr-box img { width: 100%; height: 100%; filter: invert(1) contrast(120%); mix-blend-mode: screen; }
+
+        @media (prefers-color-scheme: light) {
+            .qr-box { background: rgba(255, 255, 255, 0.5); box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.1); border: 1px solid rgba(0, 0, 0, 0.1); }
+            .qr-box img { filter: none; mix-blend-mode: multiply; }
+        }
         
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .stat-card { background: var(--bg-surface); border: 1px solid var(--border); padding: 20px; border-radius: var(--radius-md); text-align: center; }
@@ -477,7 +476,7 @@
         // ==========================================
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
-        const POS_VERSION = "2024.03.21.19"; 
+        const POS_VERSION = "2024.03.21.21"; 
 
         const defaultMenu = {
             "Fried Options": [
@@ -605,15 +604,32 @@
             await fetchCloudMenu();
             if(document.getElementById('verLabel')) document.getElementById('verLabel').innerText = POS_VERSION;
 
+            // Generate Manifest via Blob
             try {
                 const manifest = { "name": "Snack Attack POS", "short_name": "Snack Attack", "start_url": ".", "display": "standalone", "background_color": "#09090b", "theme_color": "#ff7700", "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/3081/3081367.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}] };
                 const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
                 document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
             } catch (e) {}
 
+            // Dynamic Cache-First Service Worker Strategy
             if ('serviceWorker' in navigator) {
+                const swCode = `
+                const CACHE_NAME = 'snack-attack-cache-v1';
+                self.addEventListener('fetch', (event) => {
+                  event.respondWith(
+                    caches.match(event.request).then((response) => {
+                      return response || fetch(event.request);
+                    })
+                  );
+                });
+                `;
+                const swBlob = new Blob([swCode], {type: 'application/javascript'});
+                
                 try {
-                    navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW not registered."));
+                    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => {
+                        // Fallback to standard file if blob protocol is blocked by security policy
+                        navigator.serviceWorker.register('./sw.js').catch(e => console.log("SW blocked by environment."));
+                    });
                 } catch (e) {}
             }
         }
@@ -1078,6 +1094,11 @@
             const range = getSelectedDateRange();
             let startDateObj = range.startDateObj;
             let endDateObj = range.endDateObj;
+            
+            let fetchStartDate = new Date(startDateObj);
+            if (range.selection === 'today') {
+                fetchStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+            }
 
             const listEl = document.getElementById('adminOrderList');
             if (listEl) listEl.innerHTML = Array(3).fill(`<div class="skeleton" style="height:80px; width:100%; margin-bottom:10px;"></div>`).join('');
@@ -1086,7 +1107,7 @@
             let daysToFetch = [];
             let datesObjMap = [];
 
-            let currDate = new Date(startDateObj);
+            let currDate = new Date(fetchStartDate);
             while (currDate <= endDateObj) {
                 const dd = String(currDate.getDate()).padStart(2, '0');
                 const mm = String(currDate.getMonth() + 1).padStart(2, '0');
@@ -1097,22 +1118,24 @@
             }
 
             if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
-                const fetchPromises = daysToFetch.map(async (sheetDateStr, idx) => {
-                    try {
-                        const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
-                        const rawOrders = await res.json();
-                        if (Array.isArray(rawOrders)) {
-                            return rawOrders.map(normalizeOrderData).filter(Boolean);
-                        } else { throw new Error("Invalid Cloud Format"); }
-                    } catch(e) { 
-                        return getLocalOrdersForDate(sheetDateStr, datesObjMap[idx]).map(normalizeOrderData).filter(Boolean); 
+                const batchSize = 5;
+                for (let i = 0; i < daysToFetch.length; i += batchSize) {
+                    const batch = daysToFetch.slice(i, i + batchSize);
+                    const batchPromises = batch.map(async (sheetDateStr) => {
+                        try {
+                            const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
+                            const rawOrders = await res.json();
+                            if (Array.isArray(rawOrders)) return rawOrders.map(normalizeOrderData).filter(Boolean);
+                            else throw new Error("Invalid format");
+                        } catch(e) { 
+                            let fallbackIdx = daysToFetch.indexOf(sheetDateStr);
+                            return getLocalOrdersForDate(sheetDateStr, datesObjMap[fallbackIdx]).map(normalizeOrderData).filter(Boolean); 
+                        }
+                    });
+                    const results = await Promise.all(batchPromises);
+                    for (let r = results.length - 1; r >= 0; r--) {
+                        allOrders = allOrders.concat(results[r].slice().reverse());
                     }
-                });
-
-                const results = await Promise.all(fetchPromises);
-                for (let i = results.length - 1; i >= 0; i--) {
-                    let dayOrders = results[i].slice().reverse();
-                    allOrders = allOrders.concat(dayOrders);
                 }
             } else { 
                 for (let i = daysToFetch.length - 1; i >= 0; i--) {
@@ -1148,14 +1171,19 @@
         function renderAdminDashboard(validOrdersList, startDateObj, endDateObj) {
             const listEl = document.getElementById('adminOrderList');
             if(!listEl) return;
-            const valid = validOrdersList.filter(o => o && !o.voided);
-            const totalRev = valid.reduce((s,o) => s + (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0), 0);
+            
+            const ordersToShow = validOrdersList.filter(o => {
+                if(!o || o.voided) return false;
+                const d = safeParseDate(o.timestamp);
+                return d >= startDateObj && d <= new Date(endDateObj).setHours(23,59,59,999);
+            });
+            
+            const totalRev = ordersToShow.reduce((s,o) => s + (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0), 0);
             
             document.getElementById('adminRev').innerText = "₹" + totalRev;
-            document.getElementById('adminOrders').innerText = valid.length;
+            document.getElementById('adminOrders').innerText = ordersToShow.length;
             
-            listEl.innerHTML = validOrdersList.map(o => {
-                if (!o) return "";
+            listEl.innerHTML = ordersToShow.map(o => {
                 const cleanTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
                 const d = safeParseDate(o.timestamp);
                 const displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
@@ -1183,11 +1211,12 @@
             }).join('') || `<div style="text-align:center; padding:40px;"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px; opacity:0.5;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg><br><span style="color:#666;">No orders found for this range.</span></div>`;
 
             const isMultiDay = startDateObj.toDateString() !== endDateObj.toDateString();
-            const displayHours = []; const displayLabels = [];
+            const displayHours = []; 
+            const displayLabels = [];
 
             if (!isMultiDay) {
                 let hoursArray = new Array(24).fill(0); let minHour = 24; let maxHour = 0;
-                valid.forEach(o => {
+                ordersToShow.forEach(o => {
                     let hr = 0; const timeMatch = String(o.timestamp || "").match(/(\d{1,2}):\d{2}/);
                     if (timeMatch) {
                         hr = parseInt(timeMatch[1], 10);
@@ -1215,10 +1244,12 @@
                 let cDate = new Date(startDateObj);
                 while (cDate <= endDateObj) {
                     displayLabels.push(cDate.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'}));
-                    const targetStr = `${String(cDate.getDate()).padStart(2, '0')}.${String(cDate.getMonth() + 1).padStart(2, '0')}.${String(cDate.getFullYear()).slice(-2)}`;
                     let dayTotal = 0;
-                    valid.forEach(o => {
-                         if (String(o.timestamp).trim().split(' ')[0] === targetStr) dayTotal += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
+                    ordersToShow.forEach(o => {
+                         let d = safeParseDate(o.timestamp);
+                         if (d.toDateString() === cDate.toDateString()) {
+                             dayTotal += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
+                         }
                     });
                     displayHours.push(dayTotal);
                     cDate.setDate(cDate.getDate() + 1);
@@ -1230,7 +1261,7 @@
                 salesChartObj = new Chart(document.getElementById('salesChart'), { type:'line', data:{ labels: displayLabels, datasets:[{label:'Revenue (₹)', data: displayHours, borderColor:'#ff7700', backgroundColor:'rgba(255,119,0,0.1)', fill:true, tension:0.4}] }, options:{maintainAspectRatio:false} });
 
                 let itemCounts = {}; 
-                valid.forEach(o => {
+                ordersToShow.forEach(o => {
                     try {
                         if (o.cart && Array.isArray(o.cart)) { o.cart.forEach(i => { itemCounts[i.name] = (itemCounts[i.name] || 0) + i.qty; }); } 
                         else if (o.items && typeof o.items === 'string') {
