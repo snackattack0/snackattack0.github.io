@@ -175,7 +175,6 @@
         .tender-tab, .admin-tab { flex: 1; padding: 12px 8px; text-align: center; border-radius: var(--radius-pill); cursor: pointer; font-weight: 600; color: var(--text-muted); transition: var(--transition-bounce); border: none; font-size: 0.95em; }
         .tender-tab.active, .admin-tab.active { background: var(--primary-gradient); color: #fff; box-shadow: 0 4px 15px var(--primary-glow); transform: scale(1.02); }
 
-        /* Transparent/Inverted Glass QR Code */
         .qr-box { background: rgba(0, 0, 0, 0.25); box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.5); padding: 16px; border-radius: 24px; margin: 15px 0; width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.05); }
         .qr-box img { width: 100%; height: 100%; filter: invert(1) contrast(120%); mix-blend-mode: screen; }
 
@@ -476,7 +475,7 @@
         // ==========================================
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
-        const POS_VERSION = "2024.03.21.23"; 
+        const POS_VERSION = "2024.03.21.24"; 
 
         const defaultMenu = {
             "Fried Options": [
@@ -575,36 +574,51 @@
             } catch(e){}
         }
 
+        // CRITICAL FIX 1: Robust Date Parsing 
         function safeParseDate(ts) {
             if (!ts) return new Date();
-            const tsStr = String(ts).trim();
-            // Upgraded robust parsing to keep hours & minutes
-            const dotMatch = tsStr.match(/^(\d{2})\.(\d{2})\.(\d{2,4})(?:\s+(.*))?/);
-            if (dotMatch) {
-                const day = parseInt(dotMatch[1]);
-                const month = parseInt(dotMatch[2]) - 1;
-                let year = parseInt(dotMatch[3]);
-                if (year < 100) year += 2000;
-                
-                const d = new Date(year, month, day);
-                
-                if (dotMatch[4]) {
-                    const timeMatch = dotMatch[4].match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?/i);
-                    if (timeMatch) {
-                        let h = parseInt(timeMatch[1]);
-                        const m = parseInt(timeMatch[2]);
-                        const s = timeMatch[3] ? parseInt(timeMatch[3]) : 0;
-                        const ampm = timeMatch[4] ? timeMatch[4].toLowerCase() : null;
-                        
-                        if (ampm === 'pm' && h < 12) h += 12;
-                        if (ampm === 'am' && h === 12) h = 0;
-                        
-                        d.setHours(h, m, s);
-                    }
-                }
-                return d;
+            const str = String(ts).trim();
+
+            // 1. Prioritize Cloud Standard (YYYY-MM-DD HH:mm:ss AM/PM)
+            const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):?(\d{2})?\s*(AM|PM|am|pm)?/i);
+            if (isoMatch) {
+                let year = parseInt(isoMatch[1]);
+                let month = parseInt(isoMatch[2]) - 1;
+                let day = parseInt(isoMatch[3]);
+                let hour = parseInt(isoMatch[4]);
+                let min = parseInt(isoMatch[5]);
+                let sec = isoMatch[6] ? parseInt(isoMatch[6]) : 0;
+                let ampm = isoMatch[7] ? isoMatch[7].toLowerCase() : null;
+
+                if (ampm === "pm" && hour < 12) hour += 12;
+                if (ampm === "am" && hour === 12) hour = 0;
+
+                return new Date(year, month, day, hour, min, sec);
             }
-            const d = new Date(tsStr);
+
+            // 2. Legacy/Local Storage Format (dd.MM.yy hh:mm:ss AM/PM)
+            const match = str.match(/^(\d{2})\.(\d{2})\.(\d{2,4})(?:\s+(\d{1,2}):(\d{2}):?(\d{2})?\s*(AM|PM|am|pm)?)?/i);
+            if (match) {
+                let day = parseInt(match[1]);
+                let month = parseInt(match[2]) - 1;
+                let year = match[3].length === 2 ? 2000 + parseInt(match[3]) : parseInt(match[3]);
+                
+                if (match[4]) {
+                    let hour = parseInt(match[4]);
+                    let min = parseInt(match[5]);
+                    let sec = match[6] ? parseInt(match[6]) : 0;
+                    let ampm = match[7] ? match[7].toLowerCase() : null;
+
+                    if (ampm === "pm" && hour < 12) hour += 12;
+                    if (ampm === "am" && hour === 12) hour = 0;
+
+                    return new Date(year, month, day, hour, min, sec);
+                }
+                return new Date(year, month, day);
+            }
+
+            // 3. Fallback for native browser strings
+            const d = new Date(str);
             return isNaN(d.getTime()) ? new Date() : d;
         }
 
@@ -647,13 +661,11 @@
                   if (event.request.method !== 'GET') return;
                   const url = event.request.url;
 
-                  // CRITICAL FIX: Always bypass the cache for Google Apps Script
                   if (url.includes('script.google.com') || url.includes('script.googleusercontent.com')) {
                     event.respondWith(fetch(event.request));
                     return;
                   }
 
-                  // NETWORK-FIRST STRATEGY for UI logic
                   event.respondWith(
                     fetch(event.request).then((networkResponse) => {
                       if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
@@ -671,7 +683,6 @@
                 
                 try {
                     navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => {
-                        // Fallback to standard file if blob protocol is blocked by security policy
                         navigator.serviceWorker.register('./sw.js').catch(e => console.log("SW blocked by environment."));
                     });
                 } catch (e) {}
@@ -1059,6 +1070,8 @@
         // ==========================================
         // ADMIN DASHBOARD & DYNAMIC RANGE P&L LOGIC
         // ==========================================
+        
+        // CRITICAL FIX 4: Standardize Timestamps
         function normalizeOrderData(o) {
             if (!o) return null;
             const rawTotal = String(o.total || "0").trim();
@@ -1066,6 +1079,8 @@
             const tenderAsNum = Number(rawTender.replace(/[^0-9.-]+/g, ""));
             const isOldFormatByTender = (!isNaN(tenderAsNum) && tenderAsNum > 0 && !["CASH", "UPI", "SPLIT"].includes(rawTender.toUpperCase()));
             
+            const normalizedTimestamp = safeParseDate(o.timestamp || new Date().toISOString()).toISOString();
+
             if (o.total === undefined || o.total === null || o.total === "" || isOldFormatByTender) {
                 let trueTotal = parseFloat(String(o.items || "0").replace(/[^0-9.-]+/g, "")) || 0;
                 if (isOldFormatByTender) trueTotal = tenderAsNum;
@@ -1073,7 +1088,7 @@
                 const trueTender = String(o.customerPhone || "CASH");
                 
                 return {
-                    timestamp: o.timestamp, orderId: o.orderId, customerName: "", customerPhone: "",
+                    timestamp: normalizedTimestamp, orderId: o.orderId, customerName: "", customerPhone: "",
                     items: trueItems, tender: trueTender.toUpperCase(), parcelCharge: trueItems.includes("Yes") ? 5 : 0,
                     total: trueTotal, voided: String(o.tender || "").toUpperCase() === "VOIDED" || !!o.voided,
                     cart: parseItemsToCart(trueItems)
@@ -1081,7 +1096,7 @@
             }
             
             return {
-                timestamp: o.timestamp || new Date().toISOString(), orderId: o.orderId || "UNKNOWN", 
+                timestamp: normalizedTimestamp, orderId: o.orderId || "UNKNOWN", 
                 customerName: String(o.customerName || ""), customerPhone: String(o.customerPhone || ""),
                 items: String(o.items || ""), tender: String(o.tender || "CASH").toUpperCase(), 
                 parcelCharge: parseFloat(String(o.parcelCharge || "0").replace(/[^0-9.-]+/g, "")) || 0,
@@ -1096,7 +1111,6 @@
             let startDate = new Date();
             let endDate = new Date();
 
-            // FIXED MATH: Absolute day subtraction ensures it doesn't break on 31-day months
             if (val === 'week') startDate.setDate(now.getDate() - 7);
             else if (val === 'month') startDate.setDate(now.getDate() - 30);
             else if (val === '3months') startDate.setDate(now.getDate() - 90);
@@ -1143,7 +1157,7 @@
             let fetchStartDate = new Date(startDateObj);
             if (range.selection === 'today') {
                 fetchStartDate = new Date();
-                fetchStartDate.setDate(fetchStartDate.getDate() - 30); // Fetch last 30 days for expenses logic seamlessly
+                fetchStartDate.setDate(fetchStartDate.getDate() - 30); 
             }
 
             const listEl = document.getElementById('adminOrderList');
@@ -1167,21 +1181,18 @@
                 let batchFailed = false;
                 
                 try {
-                    // Try the new High-Speed Batch API first
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrdersBatch&dates=${daysToFetch.join(',')}`);
                     const rawOrders = await res.json();
                     
                     if (Array.isArray(rawOrders)) {
                         allOrders = rawOrders.map(normalizeOrderData).filter(Boolean);
                     } else {
-                        // If it's not an array, they didn't deploy the new Google Script. Trigger fallback.
                         batchFailed = true;
                     }
                 } catch(e) {
                     batchFailed = true;
                 }
                 
-                // BACKWARDS COMPATIBILITY: Legacy chunked fetch
                 if (batchFailed) {
                     console.warn("Batch API not found on server. Falling back to legacy chunked fetching.");
                     const batchSize = 5;
@@ -1212,9 +1223,22 @@
             
             allOrders.sort((a,b) => safeParseDate(b.timestamp).getTime() - safeParseDate(a.timestamp).getTime());
             
-            cloudOrdersData = allOrders; // Cache for P&L logic
+            cloudOrdersData = allOrders;
             renderAdminDashboard(allOrders, startDateObj, endDateObj);
             if (document.getElementById('sectExpenses').style.display !== 'none') renderExpenses();
+        }
+
+        function parseItemsToCart(itemsStr) {
+            let tempCart = [];
+            String(itemsStr || "").split(',').forEach(part => {
+                const match = part.trim().match(/^(\d+)x\s+(.+)$/);
+                if(match) {
+                    let foundPrice = 0;
+                    for(let c in savedMenu) { let f = savedMenu[c].find(i=>i.name===match[2]); if(f) foundPrice = f.price; }
+                    tempCart.push({ name: match[2], qty: parseInt(match[1]), price: foundPrice });
+                }
+            });
+            return tempCart;
         }
 
         function getLocalOrdersForDate(targetStr, targetDateObj) {
@@ -1240,6 +1264,9 @@
             const listEl = document.getElementById('adminOrderList');
             if(!listEl) return;
             
+            // CRITICAL FIX 2: Debug logs
+            console.log("Orders received in Dashboard:", validOrdersList.length);
+            
             const ordersToShow = validOrdersList.filter(o => {
                 if(!o || o.voided) return false;
                 const d = safeParseDate(o.timestamp);
@@ -1258,7 +1285,6 @@
                 const d = safeParseDate(o.timestamp);
                 const displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
                 
-                // Extra time display
                 let timeStr = "";
                 if(d.getHours() || d.getMinutes()) {
                     timeStr = " " + d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'});
@@ -1593,45 +1619,15 @@
             
             let displayDate = timestamp;
             try {
-                const tsStr = String(timestamp);
-                let dd="00", mm="00", yy="0000", hh="12", min="00", ampm="am";
-                const parts = tsStr.split(' ');
-                if (parts.length >= 2 && parts[0].includes('.')) {
-                    const dateParts = parts[0].split('.');
-                    if (dateParts.length === 3) {
-                        dd = dateParts[0].padStart(2, '0');
-                        mm = dateParts[1].padStart(2, '0');
-                        yy = dateParts[2].length === 2 ? "20" + dateParts[2] : dateParts[2];
-                        const timeStr = parts.slice(1).join(' ');
-                        const timeMatch = timeStr.match(/(\d+):(\d+)/);
-                        if (timeMatch) {
-                            let h = parseInt(timeMatch[1], 10);
-                            min = timeMatch[2].padStart(2, '0');
-                            if (timeStr.toLowerCase().includes('pm') || timeStr.toLowerCase().includes('am')) {
-                                ampm = timeStr.toLowerCase().includes('pm') ? 'pm' : 'am';
-                                if (ampm === 'pm' && h < 12) h += 12; 
-                                if (ampm === 'am' && h === 12) h = 0;
-                            }
-                            ampm = h >= 12 ? 'pm' : 'am';
-                            h = h % 12; h = h ? h : 12; 
-                            hh = String(h).padStart(2, '0');
-                        }
-                        displayDate = `${dd}/${mm}/${yy} - ${hh}.${min} ${ampm}`;
-                    }
-                } 
-                else {
-                    let dObj = new Date(timestamp);
-                    if (dObj.toString() !== "Invalid Date") {
-                        dd = String(dObj.getDate()).padStart(2, '0');
-                        mm = String(dObj.getMonth() + 1).padStart(2, '0');
-                        yy = dObj.getFullYear();
-                        let h = dObj.getHours();
-                        min = String(dObj.getMinutes()).padStart(2, '0');
-                        ampm = h >= 12 ? 'pm' : 'am';
-                        h = h % 12; h = h ? h : 12; 
-                        displayDate = `${dd}/${mm}/${yy} - ${String(h).padStart(2,'0')}.${min} ${ampm}`;
-                    }
-                }
+                const dObj = safeParseDate(timestamp);
+                const dd = String(dObj.getDate()).padStart(2, '0');
+                const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+                const yy = dObj.getFullYear();
+                let h = dObj.getHours();
+                const min = String(dObj.getMinutes()).padStart(2, '0');
+                const ampm = h >= 12 ? 'pm' : 'am';
+                h = h % 12; h = h ? h : 12; 
+                displayDate = `${dd}/${mm}/${yy} - ${String(h).padStart(2,'0')}.${min} ${ampm}`;
             } catch(e) {}
             
             receipt += "Date & Time  : " + displayDate + "\n\n";
