@@ -476,7 +476,7 @@
         // ==========================================
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
-        const POS_VERSION = "2024.03.21.22"; 
+        const POS_VERSION = "2024.03.21.23"; 
 
         const defaultMenu = {
             "Fried Options": [
@@ -1164,21 +1164,43 @@
             }
 
             if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
-                // FIXED CHUNKING: Fetches in batches to stop Google Sheets from dropping the connection
-                const batchSize = 15;
-                for (let i = 0; i < daysToFetch.length; i += batchSize) {
-                    const batch = daysToFetch.slice(i, i + batchSize);
-                    try {
-                        const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrdersBatch&dates=${batch.join(',')}`);
-                        const rawOrders = await res.json();
-                        if (Array.isArray(rawOrders)) {
-                            allOrders = allOrders.concat(rawOrders.map(normalizeOrderData).filter(Boolean));
-                        }
-                    } catch(e) { 
-                        // Fallback to local storage for this batch if network dips
-                        batch.forEach((sheetDateStr, bIdx) => {
-                            allOrders = allOrders.concat(getLocalOrdersForDate(sheetDateStr, datesObjMap[i + bIdx]).map(normalizeOrderData).filter(Boolean));
+                let batchFailed = false;
+                
+                try {
+                    // Try the new High-Speed Batch API first
+                    const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrdersBatch&dates=${daysToFetch.join(',')}`);
+                    const rawOrders = await res.json();
+                    
+                    if (Array.isArray(rawOrders)) {
+                        allOrders = rawOrders.map(normalizeOrderData).filter(Boolean);
+                    } else {
+                        // If it's not an array, they didn't deploy the new Google Script. Trigger fallback.
+                        batchFailed = true;
+                    }
+                } catch(e) {
+                    batchFailed = true;
+                }
+                
+                // BACKWARDS COMPATIBILITY: Legacy chunked fetch
+                if (batchFailed) {
+                    console.warn("Batch API not found on server. Falling back to legacy chunked fetching.");
+                    const batchSize = 5;
+                    for (let i = 0; i < daysToFetch.length; i += batchSize) {
+                        const batch = daysToFetch.slice(i, i + batchSize);
+                        const batchPromises = batch.map(async (sheetDateStr, bIdx) => {
+                            try {
+                                const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getOrders&date=${sheetDateStr}`);
+                                const rawOrders = await res.json();
+                                if (Array.isArray(rawOrders)) return rawOrders.map(normalizeOrderData).filter(Boolean);
+                                else return [];
+                            } catch(e) { 
+                                return getLocalOrdersForDate(sheetDateStr, datesObjMap[i + bIdx]).map(normalizeOrderData).filter(Boolean); 
+                            }
                         });
+                        const results = await Promise.all(batchPromises);
+                        for (let r = results.length - 1; r >= 0; r--) {
+                            allOrders = allOrders.concat(results[r].slice().reverse());
+                        }
                     }
                 }
             } else { 
@@ -1188,7 +1210,7 @@
                 }
             }
             
-            allOrders.sort((a,b) => safeParseDate(b.timestamp) - safeParseDate(a.timestamp));
+            allOrders.sort((a,b) => safeParseDate(b.timestamp).getTime() - safeParseDate(a.timestamp).getTime());
             
             cloudOrdersData = allOrders; // Cache for P&L logic
             renderAdminDashboard(allOrders, startDateObj, endDateObj);
@@ -1221,7 +1243,9 @@
             const ordersToShow = validOrdersList.filter(o => {
                 if(!o || o.voided) return false;
                 const d = safeParseDate(o.timestamp);
-                return d >= startDateObj && d <= new Date(endDateObj).setHours(23,59,59,999);
+                const s = new Date(startDateObj).setHours(0,0,0,0);
+                const e = new Date(endDateObj).setHours(23,59,59,999);
+                return d.getTime() >= s && d.getTime() <= e;
             });
             
             const totalRev = ordersToShow.reduce((s,o) => s + (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0), 0);
@@ -1339,7 +1363,9 @@
             unique.forEach(o => {
                 if (o.voided) return;
                 let d = safeParseDate(o.timestamp);
-                if (d >= startDate && d <= new Date(endDate).setHours(23,59,59)) {
+                const s = new Date(startDate).setHours(0,0,0,0);
+                const e = new Date(endDate).setHours(23,59,59,999);
+                if (d.getTime() >= s && d.getTime() <= e) {
                     total += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
                 }
             });
@@ -1387,7 +1413,10 @@
 
             allExpenses.slice().reverse().forEach(e => {
                 const eDate = safeParseDate(e.date || e.timestamp);
-                if (eDate >= startDate && eDate <= new Date(endDate).setHours(23,59,59)) {
+                const s = new Date(startDate).setHours(0,0,0,0);
+                const endLimit = new Date(endDate).setHours(23,59,59,999);
+
+                if (eDate.getTime() >= s && eDate.getTime() <= endLimit) {
                     const amt = parseFloat(e.amount) || 0;
                     totalExp += amt;
                     listHtml += `<div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; margin-bottom:10px;">
