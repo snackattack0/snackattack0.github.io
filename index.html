@@ -15,7 +15,7 @@
     <style>
         :root {
             --bg-base: #09090b;
-            --bg-surface: rgba(24, 24, 27, 0.6);
+            --bg-surface: rgba(24, 24, 27, 0.4); /* Glassmorphism Base */
             --bg-surface-solid: #18181b;
             --bg-surface-hover: rgba(39, 39, 42, 0.8);
             
@@ -63,6 +63,33 @@
         .brand-icon { background: var(--primary-gradient); color: #fff; padding: 8px; border-radius: var(--radius-md); display: flex; box-shadow: 0 4px 15px var(--primary-glow); -webkit-text-fill-color: #fff; }
         .header-actions { display: flex; gap: 12px; }
 
+        /* SKELETON LOADER ANIMATION */
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .skeleton { background: rgba(255,255,255,0.05); border-radius: 12px; animation: pulse 1.5s infinite ease-in-out; }
+
+        /* GLASSMORPHISM UI */
+        .slide-panel { 
+            position: fixed; top: 0; right: -100%; bottom: 0; width: 100%; 
+            background-color: rgba(24, 24, 27, 0.8) !important; 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            display: flex; flex-direction: column; z-index: 100; 
+            box-shadow: -10px 0 40px rgba(0,0,0,0.5); 
+            transition: right 0.5s cubic-bezier(0.2, 0, 0, 1); 
+            border-left: 1px solid var(--border); 
+        }
+        .payment-modal { 
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); 
+            background: rgba(24, 24, 27, 0.9) !important; 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 24px; border-radius: var(--radius-lg); z-index: 110; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column; 
+            align-items: center; width: 90%; max-width: 380px; opacity: 0; 
+            pointer-events: none; transition: var(--transition-bounce); border: 1px solid var(--border); 
+            text-align: center; max-height: 90vh; overflow-y: auto;
+        }
+
         .search-container { display: flex; align-items: center; gap: 0; background: var(--bg-surface-solid); border: 1px solid var(--border); border-radius: var(--radius-pill); transition: var(--transition-smooth); width: 44px; height: 44px; justify-content: center; overflow: hidden; position: relative; }
         .search-container.expanded { width: 220px; justify-content: flex-start; padding: 0 16px; gap: 10px; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-glow); }
         .search-container input { width: 0; opacity: 0; background: transparent; border: none; color: var(--text-main); font-size: 1.05em; transition: var(--transition-smooth); }
@@ -88,8 +115,11 @@
         .item-price span { color: var(--text-main); font-weight: 700; font-size: 1.2em; }
         
         .item-add-btn { background: rgba(255, 119, 0, 0.1); border: 1px solid var(--primary); border-radius: var(--radius-sm); padding: 6px 14px; display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: 700; cursor: pointer; transition: var(--transition-smooth); font-size: 0.9em; }
+        .item-add-btn:active { transform: scale(0.94); } /* Haptic confirmation */
+
         .item-qty-controls { display: flex; align-items: center; gap: 8px; background: var(--primary-gradient); border-radius: var(--radius-sm); padding: 4px; color: #fff; box-shadow: 0 4px 15px var(--primary-glow); }
         .item-qty-btn { background: rgba(0,0,0,0.2); border: none; color: #fff; cursor: pointer; width: 26px; height: 26px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .item-qty-btn:active { transform: scale(0.85); }
         .item-qty-val { font-weight: 700; width: 16px; text-align: center; font-size: 0.95em; }
 
         .icon-btn { background: var(--bg-surface-solid); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; padding: 10px; border-radius: var(--radius-pill); transition: 0.2s; display: flex; align-items: center; justify-content: center;}
@@ -102,87 +132,29 @@
 
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
         .backdrop.open { opacity: 1; pointer-events: auto; }
-        .slide-panel { position: fixed; top: 0; right: -100%; bottom: 0; width: 100%; background-color: var(--bg-surface-solid); display: flex; flex-direction: column; z-index: 100; box-shadow: -10px 0 40px rgba(0,0,0,0.5); transition: right 0.5s cubic-bezier(0.2, 0, 0, 1); border-left: 1px solid var(--border); }
-        .slide-panel.open { right: 0; }
-        .cart-panel { max-width: 420px; }
-        .admin-panel { width: 100vw; max-width: 100vw; right: -100vw; }
         
         .panel-header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .panel-title { display: flex; align-items: center; gap: 10px; font-size: 1.3em; font-weight: 700; }
         .close-btn { background: var(--bg-base); border: 1px solid var(--border); color: var(--text-main); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
 
         .cart-items { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
         .cart-row { display: flex; justify-content: space-between; align-items: center; }
-        .qty-pill { display: flex; align-items: center; gap: 10px; background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 4px; }
-        .qty-btn { background: transparent; border: none; color: var(--text-main); cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-        
-        .upsell-banner { background: rgba(255, 119, 0, 0.1); border: 1px solid rgba(255,119,0,0.3); padding: 12px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; animation: slideInLeft 0.3s; margin-top: -10px; margin-bottom: 10px; }
-        @keyframes slideInLeft { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-        
-        .crm-box { background: var(--bg-base); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin: 0 24px 16px; }
-        .input-modern { width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-main); padding: 12px 16px; border-radius: var(--radius-md); font-family: 'Outfit'; outline: none; transition: 0.2s; margin-top: 8px; }
-        .loyalty-alert { background: rgba(250, 204, 21, 0.15); border: 1px solid rgba(250, 204, 21, 0.4); color: #facc15; padding: 10px; border-radius: var(--radius-sm); margin-top: 10px; font-weight: 700; display: none; text-align: center; }
-
-        .discount-row { display: flex; gap: 10px; margin: 0 24px 16px; }
-        .discount-btn { flex: 1; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-main); padding: 10px; border-radius: var(--radius-pill); font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .discount-btn.active { background: rgba(14, 165, 233, 0.2); border-color: #0ea5e9; color: #0ea5e9; }
-
-        .cart-footer { padding: 24px; background: var(--bg-base); border-top: 1px solid var(--border); }
-        .summary-total { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); font-size: 1.5em; font-weight: 800; color: var(--text-main); }
         .checkout-btn { width: 100%; padding: 20px; margin-top: 24px; background: var(--primary-gradient); color: #fff; border: none; border-radius: var(--radius-pill); font-size: 1.25em; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px var(--primary-glow); }
+        .checkout-btn:active { transform: scale(0.98); opacity: 0.9; }
 
-        .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background: var(--bg-surface-solid); padding: 24px; border-radius: var(--radius-lg); z-index: 110; box-shadow: 0 20px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; width: 90%; max-width: 380px; opacity: 0; pointer-events: none; transition: var(--transition-bounce); border: 1px solid var(--border); text-align: center; max-height: 90vh; overflow-y: auto;}
-        .payment-modal.open { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
-        .tender-tabs { display: flex; background: var(--bg-base); border-radius: var(--radius-pill); padding: 4px; width: 100%; margin: 16px 0; border: 1px solid var(--border); }
-        .tender-tab { flex: 1; padding: 10px; text-align: center; border-radius: var(--radius-pill); cursor: pointer; font-weight: 600; color: var(--text-muted); transition: 0.2s; }
-        .tender-tab.active { background: var(--bg-surface-hover); color: var(--text-main); box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
-
-        .qr-box { background: #fff; padding: 16px; border-radius: 12px; margin: 15px 0; width: 200px; height: 200px; display: flex; align-items: center; justify-content: center;}
-        .qr-box img { width: 100%; height: 100%; }
-
-        .admin-content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
-        
-        .admin-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 15px; width: 100%; }
-        .admin-tab { flex: 1; padding: 12px 8px; text-align: center; color: var(--text-muted); cursor: pointer; font-weight: 600; position: relative; white-space: normal; font-size: 0.95em; line-height: 1.3; display: flex; align-items: center; justify-content: center; }
-        .admin-tab.active { color: var(--primary); }
-        .admin-tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--primary); }
-        
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .stat-card { background: var(--bg-surface); border: 1px solid var(--border); padding: 20px; border-radius: var(--radius-md); text-align: center; }
-        .stat-val { font-size: 2em; font-weight: 800; color: var(--primary); margin-top: 8px; }
-        .chart-container { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; height: 300px; }
-
-        .switch { position: relative; display: inline-block; width: 48px; height: 26px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--bg-surface-hover); border: 1px solid var(--border); transition: .3s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: var(--text-muted); transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background: var(--primary-gradient); border-color: transparent; }
-        input:checked + .slider:before { transform: translateX(22px); background-color: #fff; }
-
-        .offline-banner { background: #ef4444; color: white; text-align: center; padding: 8px; font-weight: 600; display: none; }
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #fff; color: #000; padding: 14px 28px; border-radius: var(--radius-pill); font-weight: 700; box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; transition: transform 0.5s; z-index: 2000; }
         .toast.show { transform: translateX(-50%) translateY(0); }
-
-        .auto-verify-msg { background: rgba(14, 165, 233, 0.1); color: #0ea5e9; padding: 12px 20px; border-radius: var(--radius-pill); font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; border: 1px solid rgba(14, 165, 233, 0.3); }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        .spinner { animation: spin 1s linear infinite; }
-
-        .prep-list { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-        .prep-item { display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); }
-        .prep-item-qty { font-size: 1.4em; font-weight: 800; color: var(--primary); background: rgba(255,119,0,0.1); padding: 6px 16px; border-radius: var(--radius-pill); }
 
         @media print {
             body * { visibility: hidden; }
             #invoiceModal, #invoiceModal * { visibility: visible; }
             #invoiceModal { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform: none; background: white; color: black; box-shadow: none; border: none; padding: 0; }
-            .no-print { display: none !important; }
         }
     </style>
 </head>
 <body>
 
     <main class="main-panel">
-        <div class="offline-banner" id="offlineBanner"><span class="material-symbols-rounded" style="font-size: 16px; vertical-align: middle;">wifi_off</span> Offline Mode - Orders will auto-sync when online</div>
+        <div class="offline-banner" id="offlineBanner" style="background: #ef4444; color: white; text-align: center; padding: 8px; font-weight: 600; display: none;"><span class="material-symbols-rounded" style="font-size: 16px; vertical-align: middle;">wifi_off</span> Offline Mode - Syncing when online...</div>
         
         <header class="header">
             <div class="brand">
@@ -220,21 +192,21 @@
         
         <div class="cart-items" id="cartItems"></div>
 
-        <div class="crm-box">
+        <div class="crm-box" style="background: var(--bg-base); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin: 0 24px 16px;">
             <div style="font-weight: 600; font-size: 0.9em; color: var(--text-muted); margin-bottom: 5px;">Customer Details</div>
-            <input type="tel" id="custPhone" class="input-modern" placeholder="Phone Number" maxlength="10" onblur="lookupCustomer()">
-            <input type="text" id="custName" class="input-modern" placeholder="Name (Optional)">
-            <div id="loyaltyBadge" class="loyalty-alert">🎁 5th Visit! Give a free Mojito!</div>
+            <input type="tel" id="custPhone" class="input-modern" placeholder="Phone Number" maxlength="10" onblur="lookupCustomer()" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-main); padding: 12px 16px; border-radius: var(--radius-md);">
+            <input type="text" id="custName" class="input-modern" placeholder="Name (Optional)" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-main); padding: 12px 16px; border-radius: var(--radius-md); margin-top: 8px;">
+            <div id="loyaltyBadge" style="background: rgba(250, 204, 21, 0.15); border: 1px solid rgba(250, 204, 21, 0.4); color: #facc15; padding: 10px; border-radius: var(--radius-sm); margin-top: 10px; font-weight: 700; display: none; text-align: center;">🎁 5th Visit! Give a free Mojito!</div>
         </div>
 
-        <div class="discount-row">
+        <div class="discount-row" style="display: flex; gap: 10px; margin: 0 24px 16px;">
             <button class="discount-btn" id="btnDisc10" onclick="applyDiscount('percent', 10)">10% Staff</button>
             <button class="discount-btn" id="btnDiscCustom" onclick="showCustomDiscount()">Custom ₹</button>
             <input type="number" id="customDiscInput" class="input-modern" style="display:none; flex:1; margin-top:0;" placeholder="Amount" oninput="applyCustomDiscount()">
             <button class="discount-btn" onclick="clearDiscount()">Clear</button>
         </div>
 
-        <div class="cart-footer" style="padding-top: 0;">
+        <div class="cart-footer" style="padding: 24px; background: var(--bg-base); border-top: 1px solid var(--border);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <span style="font-weight: 500;">Parcel Charge (₹5)</span>
                 <label class="switch"><input type="checkbox" id="parcelToggle" onchange="updateTotals()"><span class="slider"></span></label>
@@ -277,7 +249,7 @@
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; background: var(--bg-surface); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border);">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">Select Period</span>
-                        <select id="dateRangeSelect" class="input-modern" style="margin-top: 0;" onchange="handleDateRangeChange()">
+                        <select id="dateRangeSelect" class="input-modern" style="margin-top: 0; background: var(--bg-base); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px;" onchange="handleDateRangeChange()">
                             <option value="today" selected>Today</option>
                             <option value="week">Past 1 Week</option>
                             <option value="month">Past 1 Month</option>
@@ -289,11 +261,11 @@
                     <div id="customDateRange" style="display: none; gap: 10px; flex-wrap: wrap;">
                         <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px;">
                             <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">From Date</span>
-                            <input type="date" id="adminDatePickerFrom" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
+                            <input type="date" id="adminDatePickerFrom" class="input-modern" style="width:100%; margin-top: 0; padding: 10px; background: var(--bg-base); border: 1px solid var(--border); color: white; border-radius: 8px;" onchange="loadAdminData()">
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px;">
                             <span style="font-size: 0.8em; color: var(--text-muted); font-weight: 600; margin-left: 4px;">To Date</span>
-                            <input type="date" id="adminDatePickerTo" class="input-modern" style="width:100%; margin-top: 0; padding: 10px;" onchange="loadAdminData()">
+                            <input type="date" id="adminDatePickerTo" class="input-modern" style="width:100%; margin-top: 0; padding: 10px; background: var(--bg-base); border: 1px solid var(--border); color: white; border-radius: 8px;" onchange="loadAdminData()">
                         </div>
                     </div>
                 </div>
@@ -312,11 +284,11 @@
             <!-- PREP FORECAST TAB -->
             <div id="sectForecast" style="display:none;">
                 <p style="color: var(--text-muted); margin-bottom: 20px;">Analyzes historical averages directly from the cloud to tell you exactly how many items to prep for the selected day.</p>
-                <select id="forecastDay" class="input-modern" onchange="loadForecast()">
+                <select id="forecastDay" class="input-modern" onchange="loadForecast()" style="width: 100%; background: var(--bg-base); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px;">
                     <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
                     <option value="4">Thursday</option><option value="5" selected>Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
                 </select>
-                <div class="prep-list" id="forecastList"></div>
+                <div class="prep-list" id="forecastList" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;"></div>
             </div>
 
             <!-- EXPENSES TAB -->
@@ -325,11 +297,11 @@
                 
                 <div class="stats-grid" style="margin-bottom:10px;">
                     <div class="stat-card">
-                        <div id="expTitleLabel">Period Expenses</div>
+                        <div id="expTitleLabel">Monthly Expenses</div>
                         <div class="stat-val" id="expTotal" style="color:#ef4444;">₹0</div>
                     </div>
                     <div class="stat-card">
-                        <div id="revTitleLabel">Period Revenue</div>
+                        <div id="revTitleLabel">Monthly Revenue</div>
                         <div class="stat-val" id="revTotal" style="color:#10b981;">₹0</div>
                     </div>
                 </div>
@@ -363,41 +335,43 @@
         <button class="checkout-btn no-print" style="width:100%; padding:15px; font-size:1em; margin-top:15px;" onclick="window.print()">Print / Save as PDF</button>
     </div>
 
-    <!-- EDIT MENU MODAL -->
+    <!-- AUTH & EDIT MODALS -->
+    <div class="payment-modal" id="authModal">
+        <div style="font-size: 1.4em; font-weight: 700;">Admin Unlock</div>
+        <input type="password" id="adminPassInput" placeholder="Password (1234)" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; margin: 20px 0; text-align: center;">
+        <button class="checkout-btn" style="margin:0;" onclick="verifyAdmin()">Open Dashboard</button>
+    </div>
+
     <div class="payment-modal" id="editMenuModal">
         <div style="font-size: 1.4em; font-weight: 700; margin-bottom: 15px; color: var(--primary);">Add Menu Item</div>
-        <input type="text" id="newItemCategory" class="input-modern" placeholder="Category (e.g. Mojitos)" list="categoryList">
+        <input type="text" id="newItemCategory" class="input-modern" placeholder="Category (e.g. Mojitos)" list="categoryList" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px;">
         <datalist id="categoryList"></datalist>
-        <input type="text" id="newItemName" class="input-modern" placeholder="Item Name">
-        <input type="number" id="newItemPrice" class="input-modern" placeholder="Price (₹)">
+        <input type="text" id="newItemName" class="input-modern" placeholder="Item Name" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px;">
+        <input type="number" id="newItemPrice" class="input-modern" placeholder="Price (₹)" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px;">
         <div style="display: flex; gap: 8px; width: 100%; margin-top: 20px;">
             <button class="close-btn" style="flex:1; border-radius: var(--radius-pill); width:auto;" onclick="document.getElementById('editMenuModal').classList.remove('open')">Cancel</button>
             <button style="flex:1.5; background:var(--primary-gradient); border:none; color:#fff; border-radius:var(--radius-pill); font-weight:700; cursor:pointer;" onclick="saveNewMenuItem()">Save to Menu</button>
         </div>
     </div>
 
-    <!-- ADD EXPENSE MODAL -->
     <div class="payment-modal" id="addExpenseModal">
         <div style="font-size: 1.4em; font-weight: 700; margin-bottom: 15px; color: #ef4444;">Add Expense</div>
-        
-        <select id="expCategoryInput" class="input-modern" style="margin-bottom: 8px;">
+        <select id="expCategoryInput" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px;">
             <option value="Raw Materials">Raw Materials (Groceries, Ice)</option>
             <option value="Fixed Costs">Fixed Costs (Rent, EB)</option>
             <option value="Packaging">Packaging (Cups, Covers)</option>
             <option value="Other">Other / Miscellaneous</option>
         </select>
-        
-        <input type="text" id="expNameInput" class="input-modern" placeholder="Specific Item (e.g., Milk, Lemons)" list="expenseSuggestions">
+        <input type="text" id="expNameInput" placeholder="Specific Item" list="expenseSuggestions" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px;">
         <datalist id="expenseSuggestions"></datalist>
-        <input type="number" id="expAmountInput" class="input-modern" placeholder="Amount (₹)">
-        
+        <input type="number" id="expAmountInput" placeholder="Amount (₹)" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px;">
         <div style="display: flex; gap: 8px; width: 100%; margin-top: 20px;">
             <button class="close-btn" style="flex:1; border-radius: var(--radius-pill); width:auto;" onclick="document.getElementById('addExpenseModal').classList.remove('open')">Cancel</button>
             <button style="flex:1.5; background:#ef4444; border:none; color:#fff; border-radius:var(--radius-pill); font-weight:700; cursor:pointer;" onclick="saveExpense()">Save Expense</button>
         </div>
     </div>
 
-    <!-- PAYMENT MODAL -->
+    <!-- PAYMENT SETTLEMENT -->
     <div class="payment-modal" id="paymentModal">
         <div style="font-size: 1.4em; font-weight: 700; color: var(--text-main);" id="paymentTitle">Settle Payment</div>
         <div class="tender-tabs">
@@ -406,13 +380,13 @@
             <div class="tender-tab" id="tabSplit" onclick="setTender('split')">Split</div>
         </div>
         <div id="splitUI" style="display: none; width: 100%; margin-bottom: 10px;">
-            <input type="number" id="splitCashInput" class="input-modern" style="text-align:center;" placeholder="Cash Received" oninput="updateSplitMath()">
+            <input type="number" id="splitCashInput" class="input-modern" style="text-align:center; width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px;" placeholder="Cash Received" oninput="updateSplitMath()">
             <div style="margin-top:10px; color: var(--primary); font-weight: 700;">Remaining UPI: <span id="splitUpiRemaining">₹0</span></div>
         </div>
         <div id="qrSection">
             <div style="font-size: 2em; font-weight: 800; color: var(--primary);" id="paymentAmount">₹0</div>
             <div class="qr-box"><img id="qrCodeImg" src="" style="display: none;"><div id="qrLoading" style="color:#888;">Generating QR...</div></div>
-            <div class="auto-verify-msg" id="verifyStatus"><span class="material-symbols-rounded spinner">sync</span> Awaiting payment webhook...</div>
+            <div class="auto-verify-msg"><span class="material-symbols-rounded spinner">sync</span> Awaiting payment webhook...</div>
         </div>
         <div id="successSection" style="display: none; padding: 20px 0;">
             <span class="material-symbols-rounded" style="font-size: 64px; color: #10b981;">check_circle</span>
@@ -425,17 +399,10 @@
         </div>
     </div>
 
-    <!-- AUTH MODALS -->
-    <div class="payment-modal" id="authModal">
-        <div style="font-size: 1.4em; font-weight: 700;">Admin Unlock</div>
-        <input type="password" id="adminPassInput" class="input-modern" style="margin: 20px 0; text-align: center;" placeholder="Password (1234)">
-        <button class="checkout-btn" style="margin:0;" onclick="verifyAdmin()">Open Dashboard</button>
-    </div>
-
     <div class="payment-modal" id="voidAuthModal">
         <div style="font-size: 1.4em; font-weight: 700; color: #ef4444;">Confirm Void</div>
         <div style="margin: 10px 0; color:var(--text-muted);">Voiding order <span id="voidOrderIdTxt" style="font-weight:800; color:#fff;"></span></div>
-        <input type="password" id="voidPassInput" class="input-modern" style="margin-bottom: 20px; text-align: center;" placeholder="Admin Password">
+        <input type="password" id="voidPassInput" class="input-modern" style="margin-bottom: 20px; text-align: center; width: 100%; background: var(--bg-surface); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px;" placeholder="Admin Password">
         <button class="checkout-btn" style="background:#ef4444; margin:0;" onclick="executeVoidOrder()">Void Order</button>
     </div>
 
@@ -447,7 +414,7 @@
         // ==========================================
         const GOOGLE_WEB_APP_URL = "__GOOGLE_WEB_APP_URL__"; 
         const PAYTM_UPI_ID = "__PAYTM_UPI_ID__"; 
-        const POS_VERSION = "2024.03.21.15"; 
+        const POS_VERSION = "2024.03.21.17"; 
 
         const defaultMenu = {
             "Fried Options": [
@@ -520,8 +487,17 @@
         }
 
         // ==========================================
-        // HELPERS
+        // HELPERS & SOUNDBOX
         // ==========================================
+        function speakPayment(amount) {
+            if (!window.speechSynthesis) return;
+            const message = `Success! ${amount} rupees received. Thank you for choosing Snack Attack. Have a great day!`;
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 0.95;
+            utterance.pitch = 1.1;
+            window.speechSynthesis.speak(utterance);
+        }
+
         function playSuccessSound() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -549,6 +525,10 @@
             return isNaN(d.getTime()) ? new Date() : d;
         }
 
+        function triggerHaptic(duration = 30) {
+            if (navigator.vibrate) navigator.vibrate(duration);
+        }
+
         // ==========================================
         // CORE UI & MENU
         // ==========================================
@@ -563,9 +543,11 @@
             const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
             document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
 
-            const swCode = `self.addEventListener('fetch', function(e) { });`;
-            const swBlob = new Blob([swCode], {type: 'application/javascript'});
-            if ('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err=>console.log(err));
+            if ('serviceWorker' in navigator) {
+                try {
+                    navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW not registered (Normal for local dev)."));
+                } catch (e) {}
+            }
         }
 
         async function fetchCloudMenu() {
@@ -637,6 +619,7 @@
         function changeCat(cat) { activeCategory = cat; renderChips(); renderMenu(cat); }
         function getCartQty(name) { return (currentBill.find(i => i.name === name) || {qty:0}).qty; }
 
+        // THE MISSING FUNCTION RESTORED
         function createItemCard(item) {
             const qty = getCartQty(item.name);
             const card = document.createElement('div');
@@ -674,7 +657,7 @@
         }
 
         function addToBill(name) {
-            if(navigator.vibrate) navigator.vibrate(30);
+            triggerHaptic(30);
             let item;
             for(let c in savedMenu) { 
                 let found = savedMenu[c].find(i => i.name === name); 
@@ -687,7 +670,7 @@
         }
 
         function updateQty(name, delta) {
-            if(navigator.vibrate) navigator.vibrate(20);
+            triggerHaptic(20);
             const idx = currentBill.findIndex(i => i.name === name);
             if(idx !== -1) {
                 currentBill[idx].qty += delta;
@@ -720,7 +703,10 @@
                     }
                 }
             }
-            container.innerHTML = html || `<div style="text-align:center; color:#888; margin-top:50px;">Cart is empty</div>`;
+            // Branded Empty State for Cart
+            container.innerHTML = html || `<div style="text-align:center; color:#888; margin-top:50px;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px; opacity:0.5;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                <br>Cart is empty</div>`;
             
             document.getElementById('cartTitle').innerHTML = editingOrderId 
                 ? `<span class="material-symbols-rounded">edit</span> Editing: ${editingOrderId}`
@@ -814,6 +800,7 @@
         }
 
         async function processPayment(manual = false) {
+            triggerHaptic(50); // Haptic on checkout success
             stopWebhookPolling();
             const orderId = editingOrderId || currentTransactionId;
             const phone = document.getElementById('custPhone').value;
@@ -852,7 +839,12 @@
                 saveOffline(payload);
             }
 
+            // TRIGGER SOUNDBOX
+            if (!editingOrderId) {
+                speakPayment(finalTotalToPay);
+            }
             playSuccessSound();
+            
             document.getElementById('qrSection').style.display = 'none';
             document.getElementById('payActions').style.display = 'none';
             document.getElementById('successSection').style.display = 'block';
@@ -1016,8 +1008,8 @@
 
         async function forceSyncAdmin() {
             showToast("Force syncing data from cloud...");
-            const icons = document.querySelectorAll('button[title="Force Refresh Server Data"] .material-symbols-rounded');
-            icons.forEach(i => i.classList.add('spinner'));
+            const icon = document.querySelector('button[title="Force Refresh Server Data"] .material-symbols-rounded');
+            icon.classList.add('spinner');
             
             cloudForecastData = null;
             cloudExpensesData = null;
@@ -1026,7 +1018,7 @@
             await loadAdminData();
             if (document.getElementById('sectForecast').style.display === 'block') loadForecast();
             
-            icons.forEach(i => i.classList.remove('spinner'));
+            icon.classList.remove('spinner');
             showToast("Data refreshed successfully!");
         }
 
@@ -1036,7 +1028,8 @@
             let endDateObj = range.endDateObj;
 
             const listEl = document.getElementById('adminOrderList');
-            if (listEl) listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching from Cloud...</div>`;
+            // USE SKELETON LOADER
+            if (listEl) listEl.innerHTML = Array(3).fill(`<div class="skeleton" style="height:80px; width:100%; margin-bottom:10px;"></div>`).join('');
 
             let allOrders = [];
             let daysToFetch = [];
@@ -1069,6 +1062,7 @@
                 });
 
                 const results = await Promise.all(fetchPromises);
+                
                 for (let i = results.length - 1; i >= 0; i--) {
                     let dayOrders = results[i].slice().reverse();
                     allOrders = allOrders.concat(dayOrders);
@@ -1085,16 +1079,33 @@
             if (document.getElementById('sectExpenses').style.display !== 'none') renderExpenses();
         }
 
+        function parseItemsToCart(itemsStr) {
+            let tempCart = [];
+            String(itemsStr || "").split(',').forEach(part => {
+                const match = part.trim().match(/^(\d+)x\s+(.+)$/);
+                if(match) {
+                    let foundPrice = 0;
+                    for(let c in savedMenu) { let f = savedMenu[c].find(i=>i.name===match[2]); if(f) foundPrice = f.price; }
+                    tempCart.push({ name: match[2], qty: parseInt(match[1]), price: foundPrice });
+                }
+            });
+            return tempCart;
+        }
+
         function getLocalOrdersForDate(targetStr, targetDateObj) {
             const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+            
             return history.filter(o => {
                 if (!o.timestamp) return false;
+                
                 const dateSection = String(o.timestamp).trim().split(' ')[0];
                 if (dateSection === targetStr) return true;
+                
                 let dObj = new Date(o.timestamp);
                 if (dObj.toString() !== "Invalid Date" && targetDateObj) {
                     return dObj.toDateString() === targetDateObj.toDateString();
                 }
+                
                 if (dateSection.includes('.')) {
                     const parts = dateSection.split('.');
                     if (parts.length === 3) {
@@ -1107,16 +1118,21 @@
         }
 
         function renderAdminDashboard(validOrdersList, startDateObj, endDateObj) {
+            const listEl = document.getElementById('adminOrderList');
             const valid = validOrdersList.filter(o => o && !o.voided);
             const totalRev = valid.reduce((s,o) => s + (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0), 0);
+            
             document.getElementById('adminRev').innerText = "₹" + totalRev;
             document.getElementById('adminOrders').innerText = valid.length;
             
-            document.getElementById('adminOrderList').innerHTML = validOrdersList.map(o => {
+            // Branded SVG Empty State for Orders
+            listEl.innerHTML = validOrdersList.map(o => {
                 if (!o) return "";
                 const cleanTotal = Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0;
+                
                 const d = safeParseDate(o.timestamp);
                 const displayDate = d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+
                 return `
                     <div style="background:var(--bg-surface); padding:15px; border-radius:12px; display:flex; justify-content:space-between; opacity:${o.voided?0.5:1}; margin-bottom:10px; flex-wrap:wrap;">
                         <div style="flex:1; min-width: 60%;">
@@ -1137,7 +1153,7 @@
                         </div>
                     </div>
                 `;
-            }).join('') || '<div style="color:#666; text-align:center; padding:20px;">No orders found for this range.</div>';
+            }).join('') || `<div style="text-align:center; padding:40px;"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px; opacity:0.5;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg><br><span style="color:#666;">No orders found for this range.</span></div>`;
 
             const isMultiDay = startDateObj.toDateString() !== endDateObj.toDateString();
             const displayHours = []; 
@@ -1157,6 +1173,7 @@
                     hoursArray[hr] += safeTotal;
                     if (hr < minHour) minHour = hr; if (hr > maxHour) maxHour = hr;
                 });
+                
                 const isToday = (startDateObj.toDateString() === new Date().toDateString());
                 if (isToday) {
                     const currentHr = new Date().getHours();
@@ -1164,6 +1181,7 @@
                     if (minHour === 24) minHour = currentHr;
                 }
                 if (minHour === 24) { minHour = 9; maxHour = 17; }
+
                 for (let i = minHour; i <= maxHour; i++) {
                     displayHours.push(hoursArray[i]);
                     const ampm = i >= 12 ? 'PM' : 'AM'; const hrFormat = i % 12 || 12;
@@ -1175,10 +1193,12 @@
                 while (cDate <= endDateObj) {
                     const label = cDate.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'});
                     displayLabels.push(label);
+                    
                     const targetDd = String(cDate.getDate()).padStart(2, '0');
                     const targetMm = String(cDate.getMonth() + 1).padStart(2, '0');
                     const targetYy = String(cDate.getFullYear()).slice(-2);
                     const targetStr = `${targetDd}.${targetMm}.${targetYy}`;
+                    
                     let dayTotal = 0;
                     valid.forEach(o => {
                          const oDateStr = String(o.timestamp).trim().split(' ')[0];
@@ -1203,21 +1223,27 @@
                     }
                 } catch(e) {}
             });
+            
             let sorted = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]);
             if(itemsChartObj) itemsChartObj.destroy();
             itemsChartObj = new Chart(document.getElementById('itemsChart'), { type:'bar', data:{ labels:sorted.map(i=>i[0]), datasets:[{label:'Items Sold', data:sorted.map(i=>i[1]), backgroundColor:'#0ea5e9', borderRadius:4}] }, options:{maintainAspectRatio:false} });
         }
 
-        // --- EXPENSES & P&L DASHBOARD ---
+        // ==========================================
+        // DYNAMIC EXPENSE / P&L MATH
+        // ==========================================
         function getRangeRevenue(startDate, endDate) {
             let total = 0;
             const history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
             const combined = [...history, ...cloudOrdersData];
+            
+            // Deduplicate local + cloud copies
             const unique = Array.from(new Map(combined.map(o => [o.orderId, o])).values());
             
             unique.forEach(o => {
                 if (o.voided) return;
                 let d = safeParseDate(o.timestamp);
+                
                 if (d >= startDate && d <= new Date(endDate).setHours(23,59,59)) {
                     total += (Number(String(o.total).replace(/[^0-9.-]+/g, "")) || 0);
                 }
@@ -1228,7 +1254,8 @@
         async function loadExpenses() {
             const listEl = document.getElementById('expenseList');
             if(!listEl) return;
-            listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Fetching Expenses...</div>`;
+            // USE SKELETON LOADER
+            listEl.innerHTML = Array(3).fill(`<div class="skeleton" style="height:60px; width:100%; margin-bottom:10px;"></div>`).join('');
             if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getExpenses`);
@@ -1242,7 +1269,6 @@
             const listEl = document.getElementById('expenseList');
             if(!listEl) return;
             const now = new Date();
-            
             const range = getSelectedDateRange();
             let startDate, endDate;
             
@@ -1278,7 +1304,8 @@
                 }
             });
 
-            listEl.innerHTML = listHtml || `<div style="text-align:center; padding:20px; color:#888;">No expenses found for this window.</div>`;
+            // SVG Branded empty state
+            listEl.innerHTML = listHtml || `<div style="text-align:center; padding:40px;"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px; opacity:0.5;"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"></path></svg><br><span style="color:#666;">No expenses found for this window.</span></div>`;
             document.getElementById('expTotal').innerText = "₹" + totalExp;
 
             const periodRev = getRangeRevenue(startDate, endDate);
@@ -1315,8 +1342,14 @@
             const cat = document.getElementById('expCategoryInput').value;
             const name = document.getElementById('expNameInput').value.trim();
             const amount = parseFloat(document.getElementById('expAmountInput').value);
+            
             if(!name || isNaN(amount)) { showToast("Enter Name and valid Amount"); return; }
-            const payload = { action: 'saveExpense', category: cat, name: name, amount: amount, timestamp: new Date().toISOString() };
+
+            const expensePayload = { 
+                action: 'saveExpense', category: cat, name: name, 
+                amount: amount, timestamp: new Date().toISOString() 
+            };
+
             document.getElementById('addExpenseModal').classList.remove('open');
             document.getElementById('expNameInput').value = '';
             document.getElementById('expAmountInput').value = '';
@@ -1324,11 +1357,13 @@
             if (navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
                 showToast("Saving Expense to Cloud...");
                 try {
-                    await fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+                    await fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(expensePayload) });
                     showToast("Expense Saved ✓");
                     loadExpenses(); 
-                } catch(e) { saveExpenseOffline(payload); }
-            } else { saveExpenseOffline(payload); }
+                } catch(e) { saveExpenseOffline(expensePayload); }
+            } else { 
+                saveExpenseOffline(expensePayload);
+            }
         }
 
         function saveExpenseOffline(payload) {
@@ -1342,8 +1377,9 @@
         async function loadForecast() {
             const listEl = document.getElementById('forecastList');
             const dayNum = parseInt(document.getElementById('forecastDay').value);
+
             if (!cloudForecastData && navigator.onLine && GOOGLE_WEB_APP_URL.startsWith("http")) {
-                listEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--primary)"><span class="material-symbols-rounded spinner">sync</span> Analyzing 30-Day Cloud Data...</div>`;
+                listEl.innerHTML = Array(4).fill(`<div class="skeleton" style="height:50px; width:100%; margin-bottom:10px;"></div>`).join('');
                 try {
                     const res = await fetch(`${GOOGLE_WEB_APP_URL}?action=getForecast`);
                     cloudForecastData = await res.json();
@@ -1352,14 +1388,18 @@
                     return;
                 }
             }
+
             if (!cloudForecastData) return;
+
             const dayCounts = cloudForecastData.daysCount[dayNum] || 1;
             const itemsObj = cloudForecastData[dayNum] || {};
             let data = Object.entries(itemsObj).map(([n, q]) => ({ n, v: Math.ceil(q / dayCounts) })).sort((a,b)=>b.v-a.v);
+            
             if (data.length === 0) {
                 listEl.innerHTML = `<div style="text-align:center; padding:30px; color:#888;">No historical data available for this day yet.</div>`;
                 return;
             }
+
             listEl.innerHTML = data.map(item => `
                 <div class="prep-item">
                     <span style="font-weight: 600; font-size: 1.1em;">${item.n}</span>
@@ -1368,20 +1408,7 @@
             `).join('');
         }
 
-        // --- EDIT, INVOICE, VOID ---
-        function parseItemsToCart(itemsStr) {
-            let tempCart = [];
-            String(itemsStr || "").split(',').forEach(part => {
-                const match = part.trim().match(/^(\d+)x\s+(.+)$/);
-                if(match) {
-                    let foundPrice = 0;
-                    for(let c in savedMenu) { let f = savedMenu[c].find(i=>i.name===match[2]); if(f) foundPrice = f.price; }
-                    tempCart.push({ name: match[2], qty: parseInt(match[1]), price: foundPrice });
-                }
-            });
-            return tempCart;
-        }
-
+        // --- EDIT, INVOICE, AND PRINT UTILS ---
         async function editOrder(orderId) {
             showToast("Fetching order from Cloud...");
             closeAllPanels(); 
@@ -1427,8 +1454,10 @@
             }
             if (!order) { showToast("Order missing from memory & cloud."); return; }
             order = normalizeOrderData(order); 
+            
             const cartToUse = order.cart && order.cart.length > 0 ? order.cart : parseItemsToCart(order.items);
             const receiptText = generateReceipt(order.orderId, cartToUse, parseFloat(order.total), order.tender, order.timestamp);
+            
             document.getElementById('invoiceText').innerText = receiptText;
             document.getElementById('invoiceModal').classList.add('open');
             document.getElementById('overlayBackdrop').classList.add('open');
@@ -1467,7 +1496,8 @@
                         }
                         displayDate = `${dd}/${mm}/${yy} - ${hh}.${min} ${ampm}`;
                     }
-                } else {
+                } 
+                else {
                     let dObj = new Date(timestamp);
                     if (dObj.toString() !== "Invalid Date") {
                         dd = String(dObj.getDate()).padStart(2, '0');
@@ -1503,7 +1533,7 @@
 
         function promptVoid(id) { currentVoidOrderId = id; document.getElementById('voidOrderIdTxt').innerText = id; document.getElementById('voidAuthModal').classList.add('open'); document.getElementById('voidPassInput').value = ''; document.getElementById('voidPassInput').focus(); }
         
-        async function executeVoidOrder() {
+        function executeVoidOrder() {
             if(document.getElementById('voidPassInput').value === '1234') {
                 let h = JSON.parse(localStorage.getItem('orderHistory'));
                 let target = h.find(o => o.orderId === currentVoidOrderId);
