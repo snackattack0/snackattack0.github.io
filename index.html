@@ -339,7 +339,7 @@
         }
 
         .header {
-            padding: 24px 20px 16px;
+            padding: 14px 20px 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -350,8 +350,8 @@
         .brand {
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 1.6em;
+            gap: 10px;
+            font-size: 1.3em;
             font-weight: 800;
             background: var(--primary-gradient);
             -webkit-background-clip: text;
@@ -363,7 +363,7 @@
         .brand-icon {
             background: var(--primary-gradient);
             color: #fff;
-            padding: 8px;
+            padding: 6px;
             border-radius: var(--radius-md);
             display: flex;
             -webkit-text-fill-color: #fff;
@@ -374,6 +374,7 @@
             display: flex;
             gap: 8px;
             align-items: center;
+            position: relative;
         }
 
         .header-clock {
@@ -524,12 +525,16 @@
         }
 
         .search-container.expanded {
-            width: 220px;
+            position: absolute;
+            right: 48px;
+            width: 280px;
             justify-content: flex-start;
-            padding: 0 16px;
-            gap: 10px;
+            padding: 0 12px;
+            gap: 8px;
             border-color: var(--primary);
-            box-shadow: 0 0 0 2px var(--primary-glow);
+            box-shadow: 0 0 20px var(--primary-glow);
+            z-index: 100;
+            flex-direction: row-reverse;
         }
 
         .search-container input {
@@ -540,12 +545,28 @@
             color: var(--text-main);
             font-size: 1.05em;
             transition: var(--transition-smooth);
+            padding: 0;
         }
 
         .search-container.expanded input {
             width: 100%;
             opacity: 1;
             display: block;
+            padding: 0 4px;
+        }
+
+        .search-clear {
+            font-size: 18px;
+            cursor: pointer;
+            opacity: 0.5;
+            display: none;
+            transition: 0.2s;
+            color: var(--text-muted);
+        }
+
+        .search-clear:hover {
+            opacity: 1;
+            color: var(--danger);
         }
 
         .chip-container {
@@ -1072,7 +1093,9 @@
                 padding-right: 10px !important;
             }
 
-            #fabContainer, .backdrop, .close-btn {
+            #fabContainer,
+            .backdrop,
+            .cart-panel .close-btn {
                 display: none !important;
             }
         }
@@ -1453,7 +1476,9 @@
 
         /* Hide FAB on Desktop */
         @media (min-width: 769px) {
-            .fab-container { display: none !important; }
+            .fab-container {
+                display: none !important;
+            }
         }
 
         .step-dot.done {
@@ -1617,13 +1642,10 @@
                         onclick="toggleSearch()">search</span>
                     <input type="text" id="searchInput" placeholder="Search menu..." oninput="handleSearch(this.value)"
                         onblur="closeSearchIfEmpty()">
+                    <span class="material-symbols-rounded search-clear" id="searchClear" onclick="clearSearch(event)">close</span>
                 </div>
-                <button class="icon-btn ripple" id="soundToggleBtn" onclick="toggleSound()" title="Toggle Sound"
-                    aria-label="Toggle Sound"><span class="material-symbols-rounded">volume_up</span></button>
-                <button class="icon-btn ripple" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme"
-                    aria-label="Toggle Theme"><span class="material-symbols-rounded">dark_mode</span></button>
-                <button class="icon-btn ripple" onclick="promptAdmin()" aria-label="Admin Dashboard"><span
-                        class="material-symbols-rounded">lock</span></button>
+                <button class="icon-btn ripple" onclick="promptAdmin()" aria-label="Admin Dashboard"
+                    title="Admin Settings"><span class="material-symbols-rounded">settings</span></button>
             </div>
         </header>
 
@@ -1874,6 +1896,27 @@
                         style="margin-bottom:0;">
                     <button class="checkout-btn" style="margin-top:12px; padding:14px; font-size:1em;"
                         onclick="saveReceiptTemplate()">Save Template</button>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-group-title"><span class="material-symbols-rounded"
+                            style="font-size:18px;">tune</span> System Preferences</div>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-weight:600;">Sound Effects & Voice</div>
+                            <button class="icon-btn ripple" id="soundToggleBtn" onclick="toggleSound()"
+                                style="border-color:var(--primary); color:var(--primary);">
+                                <span class="material-symbols-rounded">volume_up</span>
+                            </button>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-weight:600;">Color Theme Mode</div>
+                            <button class="icon-btn ripple" id="themeToggleBtn" onclick="toggleTheme()"
+                                style="border-color:var(--primary); color:var(--primary);">
+                                <span class="material-symbols-rounded">dark_mode</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="settings-group">
@@ -2311,7 +2354,7 @@
             const phone = document.getElementById('custPhone').value.trim();
             const badge = document.getElementById('loyaltyBadge');
             const nameInput = document.getElementById('custName');
-            
+
             if (!phone || phone.length < 10) {
                 badge.style.display = 'none';
                 return;
@@ -2322,11 +2365,11 @@
                 nameInput.value = c.name || "";
                 badge.style.display = 'block';
                 badge.innerHTML = `🌟 ${c.visits + 1}th Visit | 💰 <b>${c.points || 0} Pts</b>`;
-                
+
                 if (c.points >= 500) {
                     badge.innerHTML += ` <button onclick="redeemPoints()" style="background:#fff; color:var(--primary); border:none; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; margin-left:8px; cursor:pointer;">Redeem ₹50</button>`;
                 }
-                
+
                 if ((c.visits + 1) % 5 === 0) {
                     badge.style.background = 'linear-gradient(45deg, #f59e0b, #fb923c)';
                     badge.innerHTML = `🎁 Milestone Visit! ${badge.innerHTML}`;
@@ -2341,10 +2384,10 @@
         function redeemPoints() {
             const phone = document.getElementById('custPhone').value.trim();
             if (!customers[phone] || customers[phone].points < 500) return;
-            
+
             customers[phone].points -= 500;
             localStorage.setItem('crm_db', JSON.stringify(customers));
-            
+
             // Apply a flat ₹50 discount
             activeDiscount = { type: 'fixed', val: 50 };
             updateTotals();
@@ -3560,11 +3603,23 @@
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), TOAST_DURATION_MS);
         }
-        function toggleSearch() { document.getElementById('searchContainer').classList.toggle('expanded'); document.getElementById('searchInput').focus(); }
+        function toggleSearch() { 
+            const sc = document.getElementById('searchContainer');
+            sc.classList.toggle('expanded'); 
+            if (sc.classList.contains('expanded')) document.getElementById('searchInput').focus();
+        }
         function closeSearchIfEmpty() { if (!document.getElementById('searchInput').value) document.getElementById('searchContainer').classList.remove('expanded'); }
         function handleSearch(v) {
+            document.getElementById('searchClear').style.display = v ? 'block' : 'none';
             clearTimeout(searchDebounceTimer);
             searchDebounceTimer = setTimeout(() => renderMenu(activeCategory, v), SEARCH_DEBOUNCE_MS);
+        }
+        function clearSearch(e) {
+            if (e) e.stopPropagation();
+            const input = document.getElementById('searchInput');
+            input.value = '';
+            handleSearch('');
+            input.focus();
         }
         function promptAdmin() { document.getElementById('authModal').classList.add('open'); document.getElementById('overlayBackdrop').classList.add('open'); }
 
