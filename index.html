@@ -2156,36 +2156,34 @@
 
         const defaultMenu = {
             "Fried Options": [
-                { name: "Classic Fries", price: 49 }, { name: "Piri Piri Fries", price: 49 },
-                { name: "Cheesy Fries", price: 59 }, { name: "Veg Momos", price: 49 },
-                { name: "Chicken Momos", price: 59 }, { name: "Corn & Cheese Nuggets", price: 49 },
-                { name: "Chicken Loaded Fries", price: 65 }
+                { name: "Classic Fries", price: 55 }, { name: "Piri Piri Fries", price: 55 },
+                { name: "Cheesy Fries", price: 65 }, { name: "Veg Momos", price: 55 },
+                { name: "Chicken Momos", price: 65 }, { name: "Corn & Cheese Nuggets", price: 65 },
+                { name: "Chicken Loaded Fries", price: 75 }
             ],
             "Loaded Chips": [
-                { name: "Veg Loaded Chips", price: 40 }, { name: "Chicken Loaded Chips", price: 45 }
+                { name: "Veg Loaded Chips", price: 40 }, { name: "Chicken Loaded Chips", price: 50 }
             ],
             "Sandwiches": [
-                { name: "Veg Sandwich", price: 35 }, { name: "Corn & Cheese", price: 40 },
-                { name: "Paneer Sandwich", price: 45 }, { name: "Chicken Sandwich", price: 45 }
+                { name: "Veg Sandwich", price: 40 }, { name: "Cheese Toast", price: 35 }, { name: "Corn & Cheese", price: 45 }, 
+                { name: "Paneer Sandwich", price: 50 }, { name: "Egg Sandwich", price: 45 }, { name: "Chicken Sandwich", price: 50 }
             ],
             "Mojitos": [
-                { name: "Virgin Mojito", price: 49 }, { name: "Lime And Mint", price: 49 },
-                { name: "Blue Curacao", price: 49 }, { name: "Strawberry", price: 49 }
+                { name: "Virgin Mojito", price: 50 }, { name: "Lime And Mint", price: 50 },
+                { name: "Blue Curacao", price: 50 }, { name: "Strawberry", price: 50 }
             ],
             "Salad Varieties": [
-                { name: "Veg Salad", price: 29 }, { name: "Egg Salad", price: 35 },
-                { name: "Chicken Salad", price: 49 }, { name: "Sprouts Salad", price: 29 }, { name: "Watermelon", price: 20 }
+                { name: "Veg Salad", price: 35 }, { name: "Egg Salad", price: 40 },
+                { name: "Chicken Salad", price: 50 }
             ],
-            "Steamed Options": [
-                { name: "Sprouts", price: 19 }, { name: "Peanuts", price: 19 },
-                { name: "Sweetcorn", price: 19 }, { name: "Channa", price: 25 }
+            "Healthy Options": [
+                { name: "Peanuts", price: 25 }, { name: "Watermelon", price: 20 },
+                { name: "Sweetcorn", price: 25 }, { name: "Corn & Peanut Mix", price: 25 }
             ],
             "Hot Beverages": [
                 { name: "Tea", price: 15 }, { name: "Coffee", price: 15 }, { name: "Hot Chocolate", price: 29 }
             ]
         };
-
-        const upsellRules = [{ trigger: "Chicken Sandwich", suggest: "Virgin Mojito", text: "🔥 Suggest: Virgin Mojito bundle (+₹49)" }];
 
         let currentBill = [];
         let savedMenu = safeJsonParse('snackMenu_v14', defaultMenu);
